@@ -25,3 +25,9 @@ class Document(Base):
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)
     )
+
+    # RBAC metadata — used to filter documents per user role
+    department: Mapped[str] = mapped_column(String, default="General")
+    access_level: Mapped[str] = mapped_column(String, default="public")  # public | internal | confidential
+    # Comma-separated roles that may access this document, e.g. "admin,hr,finance"
+    allowed_roles: Mapped[str] = mapped_column(String, default="admin,employee")

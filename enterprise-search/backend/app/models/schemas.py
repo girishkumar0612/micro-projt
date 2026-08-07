@@ -14,6 +14,9 @@ class DocumentOut(BaseModel):
     chunks_indexed: int
     status: str
     uploaded_at: datetime
+    department: str
+    access_level: str
+    allowed_roles: str  # comma-separated, e.g. "admin,hr"
 
     class Config:
         from_attributes = True
@@ -25,6 +28,9 @@ class UploadResponse(BaseModel):
     chunks_indexed: int
     uploaded_at: datetime
     status: str
+    department: str
+    access_level: str
+    allowed_roles: str
 
 
 class DeleteResponse(BaseModel):
@@ -36,6 +42,8 @@ class DeleteResponse(BaseModel):
 
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, description="Natural language question")
+    # Role sent by the frontend so the backend can filter documents accordingly
+    role: str = Field(default="employee", description="Caller's role: admin | employee | <dept>")
 
 
 class RetrievedChunk(BaseModel):

@@ -19,34 +19,16 @@ export function useDocuments() {
     }
   }, [])
 
-  const uploadDocument = useCallback(
-    async (file, onProgress) => {
-      const formData = new FormData()
-      formData.append('file', file)
-      await axiosClient.post('/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: (evt) => {
-          if (onProgress && evt.total) {
-            onProgress(Math.round((evt.loaded / evt.total) * 100))
-          }
-        },
-      })
-      await fetchDocuments()
-    },
-    [fetchDocuments]
-  )
-
-  const deleteDocument = useCallback(
-    async (id) => {
-      await axiosClient.delete(`/documents/${id}`)
-      setDocuments((prev) => prev.filter((d) => d.id !== id))
-    },
-    []
-  )
+  // deleteDocument is only called from the admin page; the backend
+  // still validates X-Admin-Token before allowing the delete.
+  const deleteDocument = useCallback(async (id) => {
+    await axiosClient.delete(`/documents/${id}`)
+    setDocuments((prev) => prev.filter((d) => d.id !== id))
+  }, [])
 
   useEffect(() => {
     fetchDocuments()
   }, [fetchDocuments])
 
-  return { documents, isLoading, error, fetchDocuments, uploadDocument, deleteDocument }
+  return { documents, isLoading, error, fetchDocuments, deleteDocument }
 }

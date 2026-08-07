@@ -2,10 +2,11 @@
 FAISS vector store management.
 
 Wraps LangChain's FAISS integration to provide:
-  - add_chunks(document_id, chunks)   -> index new chunks, persist to disk
-  - delete_document(document_id)      -> remove all vectors for a document, persist
-  - similarity_search(query, k)       -> top-k chunks with scores + metadata
-  - is_ready() / count()              -> introspection for /health and /ask
+  - add_chunks(document_id, chunks)              -> index new chunks, persist to disk
+  - delete_document(document_id)                 -> remove all vectors for a document, persist
+  - similarity_search(query, k)                  -> top-k chunks (no filter)
+  - similarity_search_filtered(query, doc_ids, k) -> top-k chunks restricted to allowed doc IDs
+  - is_ready() / count()                         -> introspection for /health and /ask
 
 The index is a singleton loaded lazily and cached in-process; every mutation
 re-persists it to disk (vectorstore/index.faiss + index.pkl) so it survives
@@ -110,10 +111,15 @@ def delete_document(document_id: str) -> None:
         logger.info(f"Deleted {len(ids_to_delete)} chunks for document {document_id}")
 
 
+def _distance_to_similarity(distance: float) -> float:
+    """Convert FAISS L2 distance on normalised embeddings to a [0,1] similarity score."""
+    return max(0.0, 1 - (distance / 2))
+
+
 def similarity_search(query: str, k: int | None = None) -> list[dict]:
     """
+    Unrestricted top-k search across all indexed chunks.
     Returns [{ "text", "score", "source", "page" }, ...] sorted by relevance.
-    score is a normalized similarity in [0, 1] (higher = more relevant).
     """
     store = _get_store()
     if store is None:
@@ -122,15 +128,59 @@ def similarity_search(query: str, k: int | None = None) -> list[dict]:
     k = k or settings.top_k
     results = store.similarity_search_with_score(query, k=k)
 
-    out = []
-    for doc, distance in results:
-        # FAISS L2 distance on normalized embeddings -> convert to a rough
-        # similarity score in [0, 1] for display purposes.
-        similarity = max(0.0, 1 - (distance / 2))
-        out.append({
+    return [
+        {
             "text": doc.page_content,
-            "score": round(float(similarity), 4),
+            "score": round(_distance_to_similarity(distance), 4),
             "source": doc.metadata.get("source", "unknown"),
             "page": doc.metadata.get("page"),
-        })
-    return out
+        }
+        for doc, distance in results
+    ]
+
+
+def similarity_search_filtered(
+    query: str,
+    allowed_doc_ids: list[str],
+    k: int | None = None,
+) -> list[dict]:
+    """
+    RBAC-aware search: only considers chunks whose document_id is in allowed_doc_ids.
+
+    Strategy: fetch a larger candidate pool (k * 10, capped at total index size) and
+    filter down to the allowed set, then return the top-k from that filtered set.
+    This avoids re-implementing FAISS internals while staying simple for an MVP.
+    """
+    store = _get_store()
+    if store is None:
+        return []
+
+    if not allowed_doc_ids:
+        logger.info("RBAC filter: no allowed documents for this role — returning empty results.")
+        return []
+
+    allowed_set = set(allowed_doc_ids)
+    k = k or settings.top_k
+
+    # Fetch a wider candidate pool so filtering doesn't starve us of results
+    total = store.index.ntotal
+    fetch_k = min(total, max(k * 10, 50))
+
+    results = store.similarity_search_with_score(query, k=fetch_k)
+
+    filtered = []
+    for doc, distance in results:
+        if doc.metadata.get("document_id") in allowed_set:
+            filtered.append({
+                "text": doc.page_content,
+                "score": round(_distance_to_similarity(distance), 4),
+                "source": doc.metadata.get("source", "unknown"),
+                "page": doc.metadata.get("page"),
+            })
+        if len(filtered) >= k:
+            break
+
+    logger.info(
+        f"RBAC search: {len(filtered)} chunks returned from {len(allowed_set)} allowed documents"
+    )
+    return filtered

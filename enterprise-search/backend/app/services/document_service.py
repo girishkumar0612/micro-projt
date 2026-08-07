@@ -1,6 +1,6 @@
 """
 Document service — business logic for document lifecycle:
-upload -> extract -> chunk -> embed -> index, plus list & delete.
+upload -> extract -> chunk -> embed -> index, plus list, filter-by-role & delete.
 Routes call only this; this is the only layer allowed to touch both
 SQLite (metadata) and the rag/ package (vectors).
 """
@@ -20,8 +20,33 @@ logger = get_logger(__name__)
 MAX_FILE_SIZE_MB = 20
 
 
-def list_documents(db: Session) -> list[Document]:
-    return db.query(Document).order_by(Document.uploaded_at.desc()).all()
+def list_documents(db: Session, role: str | None = None) -> list[Document]:
+    """
+    Return documents visible to the given role.
+
+    role = None or "admin"  -> all documents (admin sees everything)
+    role = "employee" or any other string -> only documents whose allowed_roles
+                                             field contains that role string.
+    """
+    query = db.query(Document).order_by(Document.uploaded_at.desc())
+
+    if role and role != "admin":
+        # Filter to documents where allowed_roles contains the caller's role.
+        # allowed_roles is stored as a comma-separated string e.g. "admin,hr,finance"
+        query = query.filter(Document.allowed_roles.contains(role))
+
+    return query.all()
+
+
+def get_allowed_doc_ids(db: Session, role: str) -> list[str]:
+    """
+    Return the IDs of all documents the given role is permitted to access.
+    Used by the chat service to scope FAISS searches.
+    """
+    if role == "admin":
+        return None  # Signal to chat_service: no filter needed
+    docs = list_documents(db, role=role)
+    return [doc.id for doc in docs if doc.status == "ready"]
 
 
 def get_document(db: Session, document_id: str) -> Document:
@@ -31,7 +56,14 @@ def get_document(db: Session, document_id: str) -> Document:
     return doc
 
 
-def upload_document(db: Session, filename: str, file_bytes: bytes) -> Document:
+def upload_document(
+    db: Session,
+    filename: str,
+    file_bytes: bytes,
+    department: str = "General",
+    access_level: str = "public",
+    allowed_roles: str = "admin,employee",
+) -> Document:
     if not filename.lower().endswith(".pdf"):
         raise InvalidFileTypeError("Only PDF files are supported.")
 
@@ -40,7 +72,15 @@ def upload_document(db: Session, filename: str, file_bytes: bytes) -> Document:
         raise FileTooLargeError(f"File exceeds the {MAX_FILE_SIZE_MB}MB limit.")
 
     # Create DB row first (status=indexing) so it shows up immediately in the UI.
-    doc = Document(filename=filename, stored_path="", size_kb=size_kb, status="indexing")
+    doc = Document(
+        filename=filename,
+        stored_path="",
+        size_kb=size_kb,
+        status="indexing",
+        department=department,
+        access_level=access_level,
+        allowed_roles=allowed_roles,
+    )
     db.add(doc)
     db.commit()
     db.refresh(doc)
@@ -59,7 +99,7 @@ def upload_document(db: Session, filename: str, file_bytes: bytes) -> Document:
         doc.status = "ready"
         db.commit()
         db.refresh(doc)
-        logger.info(f"Document '{filename}' indexed successfully ({indexed_count} chunks).")
+        logger.info(f"Document '{filename}' indexed ({indexed_count} chunks) — dept: {department}, roles: {allowed_roles}.")
         return doc
 
     except Exception:

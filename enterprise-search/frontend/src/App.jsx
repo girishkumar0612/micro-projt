@@ -1,13 +1,13 @@
 import AppRouter from './router/AppRouter'
-import { AdminProvider } from './context/AdminContext'
+import { AuthProvider } from './context/AuthContext'
 import { ToastProvider } from './components/common/Toast'
 
 export default function App() {
   return (
-    <AdminProvider>
+    <AuthProvider>
       <ToastProvider>
         <AppRouter />
       </ToastProvider>
-    </AdminProvider>
+    </AuthProvider>
   )
 }

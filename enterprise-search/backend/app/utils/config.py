@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     # Admin auth
-    admin_token: str = "change_me_admin_secret"
+    admin_token: str = "admin123"
 
     # RAG tuning
     chunk_size: int = 800
