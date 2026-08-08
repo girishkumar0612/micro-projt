@@ -34,6 +34,7 @@ export function useChat() {
           role: 'assistant',
           text: err.friendlyMessage || 'Something went wrong answering that question.',
           error: true,
+          errorCode: err.response?.data?.code || null,
         },
       ])
     } finally {

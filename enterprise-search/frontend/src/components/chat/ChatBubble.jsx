@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion'
-import { Sparkles, User, AlertTriangle } from 'lucide-react'
+import { Sparkles, User, AlertTriangle, Lock } from 'lucide-react'
 import SourceCitation from './SourceCitation'
 
 export default function ChatBubble({ message }) {
   const isUser = message.role === 'user'
+  const isAccessRestricted = message.errorCode === 'ACCESS_RESTRICTED'
 
   return (
     <motion.div
@@ -24,20 +25,37 @@ export default function ChatBubble({ message }) {
           ${
             isUser
               ? 'bg-brand-gradient text-white rounded-tr-sm'
+              : isAccessRestricted
+              ? 'bg-amber-50 border border-amber-200 text-amber-900 rounded-tl-sm'
               : message.error
               ? 'bg-state-danger/5 border border-state-danger/20 text-state-danger rounded-tl-sm'
               : 'bg-white border border-ink/5 text-ink rounded-tl-sm'
           }`}
       >
-        {message.error && (
-          <div className="flex items-center gap-1.5 text-xs font-medium mb-1">
-            <AlertTriangle size={12} /> Couldn't answer that
+        {isAccessRestricted ? (
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2 font-semibold text-amber-800">
+              <Lock size={14} strokeWidth={2.5} />
+              Access Restricted
+            </div>
+            <p className="text-amber-800/80 leading-relaxed">
+              You do not have permission to access this document. Please contact your
+              administrator if you believe you should have access.
+            </p>
           </div>
-        )}
-        <p className="whitespace-pre-wrap">{message.text}</p>
+        ) : (
+          <>
+            {message.error && (
+              <div className="flex items-center gap-1.5 text-xs font-medium mb-1">
+                <AlertTriangle size={12} /> Couldn't answer that
+              </div>
+            )}
+            <p className="whitespace-pre-wrap">{message.text}</p>
 
-        {!isUser && !message.error && (
-          <SourceCitation source={message.source} chunks={message.chunks} />
+            {!isUser && !message.error && (
+              <SourceCitation source={message.source} chunks={message.chunks} />
+            )}
+          </>
         )}
       </div>
     </motion.div>

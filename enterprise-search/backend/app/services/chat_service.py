@@ -9,7 +9,7 @@ No chat history is persisted — this is a pure request/response operation.
 from app.rag import vectorstore
 from app.rag.llm_chain import generate_answer
 from app.models.schemas import AskResponse, RetrievedChunk
-from app.utils.exceptions import EmptyQuestionError, NoDocumentsIndexedError
+from app.utils.exceptions import EmptyQuestionError, NoDocumentsIndexedError, AccessRestrictedError
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -42,8 +42,15 @@ def ask_question(question: str, allowed_doc_ids: list[str] | None = None) -> Ask
         retrieved = vectorstore.similarity_search_filtered(question, allowed_doc_ids)
 
     if not retrieved:
+        if allowed_doc_ids is not None:
+            # The role-filter produced no results. This means the question
+            # is about content the user's role cannot access.
+            raise AccessRestrictedError(
+                "You do not have permission to access this document. "
+                "Please contact your administrator if you believe you should have access."
+            )
         raise NoDocumentsIndexedError(
-            "No relevant information was found in the documents you have access to."
+            "No relevant information was found in the indexed documents."
         )
 
     answer_text = generate_answer(question, retrieved)

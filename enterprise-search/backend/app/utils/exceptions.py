@@ -52,6 +52,11 @@ class LLMProviderError(AppException):
     code = "LLM_PROVIDER_ERROR"
 
 
+class AccessRestrictedError(AppException):
+    status_code = 403
+    code = "ACCESS_RESTRICTED"
+
+
 class UnauthorizedError(AppException):
     status_code = 401
     code = "UNAUTHORIZED"
