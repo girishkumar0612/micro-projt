@@ -5,10 +5,10 @@ import { useAuth } from '../../context/AuthContext'
  * Wraps a route so only authenticated (and optionally role-matched) users can access it.
  *
  * Props:
- *   requiredRole — "admin" | "employee" | undefined
+ *   requiredRole — "admin" | "staff" | undefined
  *     undefined  → any logged-in user is allowed
- *     "admin"    → only users with role === "admin"
- *     "employee" → any non-admin logged-in user
+ *     "admin"    → only users with role === "admin"; others → /staff/chat
+ *     "staff"    → any non-admin logged-in user (hr | finance | it); admins → /admin/documents
  */
 export default function ProtectedRoute({ children, requiredRole }) {
   const { currentUser } = useAuth()
@@ -22,7 +22,7 @@ export default function ProtectedRoute({ children, requiredRole }) {
     return <Navigate to="/employee/chat" replace />
   }
 
-  if (requiredRole === 'employee' && currentUser.role === 'admin') {
+  if (requiredRole === 'staff' && currentUser.role === 'admin') {
     return <Navigate to="/admin/documents" replace />
   }
 

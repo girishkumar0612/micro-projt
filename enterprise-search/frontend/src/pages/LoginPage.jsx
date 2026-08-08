@@ -7,11 +7,10 @@ import Button from '../components/common/Button'
 
 // Demo credential hint cards shown below the form
 const DEMO_USERS = [
-  { name: 'Admin User',    username: 'admin', role: 'admin',    color: 'text-brand-indigo' },
-  { name: 'Alice Johnson', username: 'alice', role: 'employee', color: 'text-state-success' },
-  { name: 'Bob Smith',     username: 'bob',   role: 'hr',       color: 'text-brand-violet' },
-  { name: 'Carol White',   username: 'carol', role: 'finance',  color: 'text-state-warning' },
-  { name: 'Dave Lee',      username: 'dave',  role: 'it',       color: 'text-brand-cyan' },
+  { name: 'Admin User',    username: 'admin', role: 'admin',   color: 'text-brand-indigo' },
+  { name: 'Bob Smith',     username: 'bob',   role: 'hr',      color: 'text-brand-violet' },
+  { name: 'Carol White',   username: 'carol', role: 'finance', color: 'text-state-warning' },
+  { name: 'Dave Lee',      username: 'dave',  role: 'it',      color: 'text-brand-cyan' },
 ]
 
 export default function LoginPage() {
@@ -95,7 +94,7 @@ export default function LoginPage() {
                 autoFocus
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="e.g. alice"
+                placeholder="e.g. bob"
                 className="rounded-xl border border-ink/10 bg-canvas px-3.5 py-2.5 text-sm text-ink
                   placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-brand-indigo/30
                   focus:border-brand-indigo transition-all"

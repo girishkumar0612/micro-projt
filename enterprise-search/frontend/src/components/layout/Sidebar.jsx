@@ -4,7 +4,6 @@ import { useAuth } from '../../context/AuthContext'
 
 const ROLE_STYLES = {
   admin:    'bg-brand-indigo/10 text-brand-indigo',
-  employee: 'bg-state-success/10 text-state-success',
   hr:       'bg-brand-violet/10 text-brand-violet',
   finance:  'bg-state-warning/10 text-state-warning',
   it:       'bg-brand-cyan/10 text-brand-cyan',

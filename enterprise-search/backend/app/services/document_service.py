@@ -62,7 +62,7 @@ def upload_document(
     file_bytes: bytes,
     department: str = "General",
     access_level: str = "public",
-    allowed_roles: str = "admin,employee",
+    allowed_roles: str = "admin",
 ) -> Document:
     if not filename.lower().endswith(".pdf"):
         raise InvalidFileTypeError("Only PDF files are supported.")

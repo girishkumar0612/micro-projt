@@ -42,7 +42,7 @@ export default function AppRouter() {
         <Route
           path="/employee/chat"
           element={
-            <ProtectedRoute requiredRole="employee">
+            <ProtectedRoute requiredRole="staff">
               <EmployeeChatPage />
             </ProtectedRoute>
           }
@@ -50,7 +50,7 @@ export default function AppRouter() {
         <Route
           path="/employee/documents"
           element={
-            <ProtectedRoute requiredRole="employee">
+            <ProtectedRoute requiredRole="staff">
               <EmployeeDocsPage />
             </ProtectedRoute>
           }
