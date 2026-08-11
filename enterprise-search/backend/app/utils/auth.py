@@ -11,7 +11,7 @@ verify a JWT.
 Admin-only endpoints additionally require X-Admin-Token to match the
 env-configured secret.
 
-Roles: admin | hr | finance | it
+Roles: admin | hr | finance | it | marketing
 The generic "employee" role has been intentionally removed.
 """
 from fastapi import Header
@@ -19,7 +19,7 @@ from app.utils.config import settings
 from app.utils.exceptions import UnauthorizedError
 
 # Canonical set of permitted roles. "employee" is not a valid role.
-ALLOWED_ROLES = {"admin", "hr", "finance", "it"}
+ALLOWED_ROLES = {"admin", "hr", "finance", "it", "marketing"}
 
 
 def get_user_role(x_user_role: str | None = Header(default=None)) -> str:
@@ -27,7 +27,7 @@ def get_user_role(x_user_role: str | None = Header(default=None)) -> str:
     Returns the caller's role from the X-User-Role header.
     If the header is absent or carries an unrecognised value the request is
     treated as having no role — document queries will return nothing.
-    Allowed values: admin | hr | finance | it
+    Allowed values: admin | hr | finance | it | marketing
     """
     role = (x_user_role or "").lower().strip()
     return role if role in ALLOWED_ROLES else ""

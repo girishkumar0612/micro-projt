@@ -17,10 +17,11 @@ const ACCESS_CONFIG = {
 }
 
 const ROLE_CONFIG = {
-  admin:   { label: 'Admin',   cls: 'bg-violet-100  text-violet-700  border-violet-200'  },
-  hr:      { label: 'HR',      cls: 'bg-pink-100    text-pink-700    border-pink-200'    },
-  finance: { label: 'Finance', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  it:      { label: 'IT',      cls: 'bg-orange-100  text-orange-700  border-orange-200'  },
+  admin:     { label: 'Admin',     cls: 'bg-violet-100  text-violet-700  border-violet-200'  },
+  hr:        { label: 'HR',        cls: 'bg-pink-100    text-pink-700    border-pink-200'    },
+  finance:   { label: 'Finance',   cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  it:        { label: 'IT',        cls: 'bg-orange-100  text-orange-700  border-orange-200'  },
+  marketing: { label: 'Marketing', cls: 'bg-rose-100    text-rose-700    border-rose-200'    },
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

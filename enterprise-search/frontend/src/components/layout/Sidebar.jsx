@@ -4,10 +4,11 @@ import { useAuth } from '../../context/AuthContext'
 import ChatHistorySidebar from '../chat/ChatHistorySidebar'
 
 const ROLE_STYLES = {
-  admin:    'bg-brand-indigo/10 text-brand-indigo',
-  hr:       'bg-brand-violet/10 text-brand-violet',
-  finance:  'bg-state-warning/10 text-state-warning',
-  it:       'bg-brand-cyan/10 text-brand-cyan',
+  admin:     'bg-brand-indigo/10 text-brand-indigo',
+  hr:        'bg-brand-violet/10 text-brand-violet',
+  finance:   'bg-state-warning/10 text-state-warning',
+  it:        'bg-brand-cyan/10 text-brand-cyan',
+  marketing: 'bg-rose-500/10 text-rose-600',
 }
 
 function NavItem({ to, icon: Icon, label, onClick }) {

@@ -26,10 +26,11 @@ const ACCESS_LEVELS = [
 ]
 
 const ROLE_CONFIG = {
-  admin:   { label: 'Admin',   bg: 'bg-violet-100',  text: 'text-violet-700',  border: 'border-violet-200',  activeBg: 'bg-violet-600',  activeText: 'text-white' },
-  hr:      { label: 'HR',      bg: 'bg-pink-100',    text: 'text-pink-700',    border: 'border-pink-200',    activeBg: 'bg-pink-600',    activeText: 'text-white' },
-  finance: { label: 'Finance', bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', activeBg: 'bg-emerald-600', activeText: 'text-white' },
-  it:      { label: 'IT',      bg: 'bg-orange-100',  text: 'text-orange-700',  border: 'border-orange-200',  activeBg: 'bg-orange-600',  activeText: 'text-white' },
+  admin:     { label: 'Admin',     bg: 'bg-violet-100',  text: 'text-violet-700',  border: 'border-violet-200',  activeBg: 'bg-violet-600',  activeText: 'text-white' },
+  hr:        { label: 'HR',        bg: 'bg-pink-100',    text: 'text-pink-700',    border: 'border-pink-200',    activeBg: 'bg-pink-600',    activeText: 'text-white' },
+  finance:   { label: 'Finance',   bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', activeBg: 'bg-emerald-600', activeText: 'text-white' },
+  it:        { label: 'IT',        bg: 'bg-orange-100',  text: 'text-orange-700',  border: 'border-orange-200',  activeBg: 'bg-orange-600',  activeText: 'text-white' },
+  marketing: { label: 'Marketing', bg: 'bg-rose-100',    text: 'text-rose-700',    border: 'border-rose-200',    activeBg: 'bg-rose-600',    activeText: 'text-white' },
 }
 const ALL_ROLES = Object.keys(ROLE_CONFIG)
 const DEFAULT_META = { department: 'General', access_level: 'internal', allowed_roles: ['admin'] }
