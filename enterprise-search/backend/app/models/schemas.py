@@ -17,6 +17,7 @@ class DocumentOut(BaseModel):
     department: str
     access_level: str
     allowed_roles: str  # comma-separated, e.g. "admin,hr"
+    summary: str = ""
 
     class Config:
         from_attributes = True
@@ -31,6 +32,7 @@ class UploadResponse(BaseModel):
     department: str
     access_level: str
     allowed_roles: str
+    summary: str = ""
 
 
 class DeleteResponse(BaseModel):
@@ -38,12 +40,18 @@ class DeleteResponse(BaseModel):
     id: str
 
 
+# ---------- Summarize ----------
+
+class SummarizeResponse(BaseModel):
+    summary: str
+
+
 # ---------- Chat ----------
 
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, description="Natural language question")
     # Role sent by the frontend so the backend can filter documents accordingly
-    role: str = Field(default="employee", description="Caller's role: admin | employee | <dept>")
+    role: str = Field(default="hr", description="Caller's role: admin | hr | finance | it")
 
 
 class RetrievedChunk(BaseModel):

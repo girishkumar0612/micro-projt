@@ -63,6 +63,7 @@ def upload_document(
     department: str = "General",
     access_level: str = "public",
     allowed_roles: str = "admin",
+    summary: str = "",
 ) -> Document:
     if not filename.lower().endswith(".pdf"):
         raise InvalidFileTypeError("Only PDF files are supported.")
@@ -80,6 +81,7 @@ def upload_document(
         department=department,
         access_level=access_level,
         allowed_roles=allowed_roles,
+        summary=summary,
     )
     db.add(doc)
     db.commit()

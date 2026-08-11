@@ -1,6 +1,6 @@
 """
 POST /api/upload — admin-only.
-Accepts a PDF plus RBAC metadata (department, access_level, allowed_roles),
+Accepts a PDF plus RBAC metadata (department, access_level, allowed_roles, summary),
 runs it through the full ingestion pipeline via document_service.
 """
 from fastapi import APIRouter, UploadFile, File, Form, Depends
@@ -19,7 +19,8 @@ async def upload_pdf(
     file: UploadFile = File(...),
     department: str = Form(default="General"),
     access_level: str = Form(default="public"),
-    allowed_roles: str = Form(default="admin,employee"),
+    allowed_roles: str = Form(default="admin"),
+    summary: str = Form(default=""),
     db: Session = Depends(get_db),
     _admin: None = Depends(require_admin),
 ):
@@ -31,6 +32,7 @@ async def upload_pdf(
         department=department,
         access_level=access_level,
         allowed_roles=allowed_roles,
+        summary=summary,
     )
     return UploadResponse(
         id=doc.id,
@@ -41,4 +43,5 @@ async def upload_pdf(
         department=doc.department,
         access_level=doc.access_level,
         allowed_roles=doc.allowed_roles,
+        summary=doc.summary,
     )

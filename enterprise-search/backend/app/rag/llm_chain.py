@@ -43,6 +43,46 @@ def build_context(chunks: list[dict]) -> str:
     return "\n\n".join(parts)
 
 
+SUMMARY_SYSTEM_PROMPT = (
+    "You are a document analyst for an enterprise knowledge base. "
+    "Your task is to write a concise, factual summary of the document provided below.\n"
+    "Rules:\n"
+    "- Write exactly 3 to 5 sentences.\n"
+    "- Use ONLY information present in the document text — do not invent or infer anything.\n"
+    "- Write in third person, plain professional English.\n"
+    "- Do not mention 'the document', 'the text', or 'the excerpt' — describe the content directly.\n"
+    "- Do not include bullet points, headers, or lists.\n"
+)
+
+
+def generate_summary(full_text: str) -> str:
+    """
+    Generate a 3-5 sentence factual summary of a document using Groq.
+    full_text should be the concatenated plain text of the PDF (not chunked).
+    Raises LLMProviderError on any failure.
+    """
+    # Groq context window is large but we cap the text sent to avoid hitting
+    # token limits on very large PDFs. 12 000 chars ≈ ~3 000 tokens.
+    truncated = full_text[:12_000]
+    if len(full_text) > 12_000:
+        truncated += "\n\n[Document continues — summary based on first portion only.]"
+
+    user_prompt = f"Document text:\n\n{truncated}\n\nSummary:"
+
+    try:
+        llm = _get_llm()
+        response = llm.invoke([
+            SystemMessage(content=SUMMARY_SYSTEM_PROMPT),
+            HumanMessage(content=user_prompt),
+        ])
+        return response.content.strip()
+    except Exception as exc:
+        logger.error(f"Groq summary generation failed: {exc}")
+        raise LLMProviderError(
+            "Could not generate summary — the language model is unavailable. Please try again."
+        )
+
+
 def generate_answer(question: str, chunks: list[dict]) -> str:
     context = build_context(chunks)
     user_prompt = (
