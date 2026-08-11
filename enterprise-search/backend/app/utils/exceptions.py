@@ -67,6 +67,17 @@ class ExtractionError(AppException):
     code = "EXTRACTION_FAILED"
 
 
+class DuplicateDocumentError(AppException):
+    """
+    Raised when the SHA-256 hash of an uploaded file matches a document that
+    already exists in the database.  Returns 409 Conflict so the frontend can
+    distinguish this from a generic 400 validation error and render a
+    dedicated "Duplicate Policy Detected" banner.
+    """
+    status_code = 409
+    code = "DUPLICATE_DOCUMENT"
+
+
 async def app_exception_handler(request: Request, exc: AppException):
     return JSONResponse(
         status_code=exc.status_code,

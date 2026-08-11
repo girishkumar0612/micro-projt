@@ -6,7 +6,7 @@ SQLAlchemy ORM models.
 """
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, Integer, DateTime, Text, ForeignKey
+from sqlalchemy import String, Integer, DateTime, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.database import Base
 
@@ -17,6 +17,13 @@ def _uuid() -> str:
 
 class Document(Base):
     __tablename__ = "documents"
+    # Database-level uniqueness on the SHA-256 content hash.
+    # This is the last line of defence against race-condition duplicates:
+    # even if two identical uploads arrive simultaneously and both pass the
+    # application-layer check, the DB will reject the second INSERT.
+    __table_args__ = (
+        UniqueConstraint("sha256_hash", name="uq_documents_sha256_hash"),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     filename: Mapped[str] = mapped_column(String, nullable=False)
@@ -27,6 +34,10 @@ class Document(Base):
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)
     )
+
+    # SHA-256 hex digest of the raw PDF bytes.
+    # Used for exact-duplicate detection; NOT derived from the filename.
+    sha256_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
 
     # RBAC metadata — used to filter documents per user role
     department: Mapped[str] = mapped_column(String, default="General")

@@ -44,4 +44,5 @@ async def upload_pdf(
         access_level=doc.access_level,
         allowed_roles=doc.allowed_roles,
         summary=doc.summary,
+        sha256_hash=doc.sha256_hash,
     )

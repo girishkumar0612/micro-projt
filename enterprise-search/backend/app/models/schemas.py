@@ -33,6 +33,7 @@ class UploadResponse(BaseModel):
     access_level: str
     allowed_roles: str
     summary: str = ""
+    sha256_hash: str = ""
 
 
 class DeleteResponse(BaseModel):

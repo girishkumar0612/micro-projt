@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import {
   ShieldCheck, FileStack, Users, Globe, Upload,
-  ChevronRight, Info, CheckCircle2, Sparkles, Pencil, Loader2,
+  ChevronRight, Info, CheckCircle2, Sparkles, Pencil, Loader2, Lock,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import AppShell from '../../components/layout/AppShell'
@@ -94,7 +94,40 @@ function SummarizingPanel({ filename }) {
   )
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Duplicate-policy banner ───────────────────────────────────────────────────
+function DuplicateBanner({ detail, onDismiss }) {
+  return (
+    <motion.div
+      key="dup-banner"
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      transition={{ duration: 0.2 }}
+      className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3.5 mx-6 mt-4"
+      role="alert"
+    >
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100">
+        <Lock size={14} className="text-amber-600" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-amber-800">🔒 Duplicate Policy Detected</p>
+        <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+          This exact policy version has already been uploaded.
+          {detail ? <><br /><span className="opacity-80">{detail}</span></> : null}
+        </p>
+      </div>
+      <button
+        onClick={onDismiss}
+        className="shrink-0 mt-0.5 text-amber-500 hover:text-amber-700 transition-colors p-0.5 rounded"
+        aria-label="Dismiss"
+      >
+        ✕
+      </button>
+    </motion.div>
+  )
+}
+
+
 export default function AdminDocumentsPage() {
   const { documents, isLoading, fetchDocuments, deleteDocument } = useDocuments()
   const { showToast } = useToast()
@@ -106,8 +139,17 @@ export default function AdminDocumentsPage() {
   const [progress, setProgress] = useState(0)
   const [pendingDelete, setPendingDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  // Set to { detail: string } when backend returns DUPLICATE_DOCUMENT (409)
+  const [duplicateError, setDuplicateError] = useState(null)
 
-  const resetFlow = () => { setStep('idle'); setPendingFile(null); setSummary(''); setMeta(DEFAULT_META); setProgress(0) }
+  const resetFlow = () => {
+    setStep('idle')
+    setPendingFile(null)
+    setSummary('')
+    setMeta(DEFAULT_META)
+    setProgress(0)
+    setDuplicateError(null)
+  }
 
   const toggleRole = (role) =>
     setMeta((prev) => ({
@@ -122,6 +164,7 @@ export default function AdminDocumentsPage() {
     setPendingFile(file)
     setSummary('')
     setMeta(DEFAULT_META)
+    setDuplicateError(null)
     setStep('summarizing')
     const fd = new FormData()
     fd.append('file', file)
@@ -140,6 +183,7 @@ export default function AdminDocumentsPage() {
     if (!pendingFile) return
     if (meta.allowed_roles.length === 0) { showToast('Select at least one allowed role.', 'error'); return }
     setStep('uploading')
+    setDuplicateError(null)
     setProgress(0)
     const fd = new FormData()
     fd.append('file', pendingFile)
@@ -156,8 +200,14 @@ export default function AdminDocumentsPage() {
       resetFlow()
       fetchDocuments()
     } catch (err) {
-      showToast(err.friendlyMessage || 'Upload failed.', 'error')
-      setStep('configuring')
+      // 409 DUPLICATE_DOCUMENT → show the dedicated inline banner, not a toast
+      if (err.response?.data?.code === 'DUPLICATE_DOCUMENT') {
+        setDuplicateError({ detail: err.response.data.detail })
+        setStep('configuring')
+      } else {
+        showToast(err.friendlyMessage || 'Upload failed.', 'error')
+        setStep('configuring')
+      }
     }
   }
 
@@ -233,6 +283,17 @@ export default function AdminDocumentsPage() {
                 </div>
 
                 <Breadcrumb step={step} />
+
+                {/* Duplicate-policy banner — shown inline so the admin can read it
+                    clearly without the flow resetting; Cancel clears the file */}
+                <AnimatePresence>
+                  {duplicateError && (
+                    <DuplicateBanner
+                      detail={duplicateError.detail}
+                      onDismiss={() => setDuplicateError(null)}
+                    />
+                  )}
+                </AnimatePresence>
 
                 <AnimatePresence mode="wait">
                   {/* ── Summarizing ── */}
