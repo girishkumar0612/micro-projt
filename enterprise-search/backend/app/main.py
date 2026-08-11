@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.db.database import init_db
 from app.routes import upload_routes, document_routes, chat_routes, summarize_routes
+from app.routes import conversation_routes
 from app.utils.exceptions import AppException, app_exception_handler, unhandled_exception_handler
 from app.utils.config import settings
 from app.utils.logger import get_logger
@@ -39,6 +40,7 @@ app.include_router(upload_routes.router)
 app.include_router(summarize_routes.router)
 app.include_router(document_routes.router)
 app.include_router(chat_routes.router)
+app.include_router(conversation_routes.router)
 
 
 @app.on_event("startup")

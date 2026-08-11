@@ -24,6 +24,10 @@ axiosClient.interceptors.request.use((config) => {
       if (user?.role) {
         config.headers['X-User-Role'] = user.role
       }
+      // X-User-Id is used by conversation endpoints to scope history per user
+      if (user?.id) {
+        config.headers['X-User-Id'] = user.id
+      }
       if (user?.role === 'admin') {
         config.headers['X-Admin-Token'] = DEMO_ADMIN_TOKEN
       }

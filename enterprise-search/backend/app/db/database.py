@@ -1,7 +1,6 @@
 """
-SQLite engine/session — stores only document metadata (see models/db_models.py).
-Chat history is intentionally NOT persisted (kept in-memory on the frontend
-for the current session, per project decision).
+SQLite engine/session.
+Stores document metadata, conversation history, and chat messages.
 """
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
@@ -29,5 +28,5 @@ def get_db():
 
 
 def init_db():
-    from app.models import db_models  # noqa: F401  (ensures model is registered)
+    from app.models import db_models  # noqa: F401  (ensures all models are registered)
     Base.metadata.create_all(bind=engine)

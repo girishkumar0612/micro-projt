@@ -52,6 +52,8 @@ class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, description="Natural language question")
     # Role sent by the frontend so the backend can filter documents accordingly
     role: str = Field(default="hr", description="Caller's role: admin | hr | finance | it")
+    # Optional: attach this question to an existing conversation
+    conversation_id: str | None = Field(default=None, description="Existing conversation to continue")
 
 
 class RetrievedChunk(BaseModel):
@@ -65,6 +67,8 @@ class AskResponse(BaseModel):
     answer: str
     source: str | None = None
     chunks: list[RetrievedChunk] = []
+    # The conversation this exchange was saved to
+    conversation_id: str | None = None
 
 
 # ---------- Health ----------
@@ -73,3 +77,47 @@ class HealthResponse(BaseModel):
     status: str
     documents_indexed: int
     vectorstore_ready: bool
+
+
+# ---------- Conversations ----------
+
+class MessageOut(BaseModel):
+    id: str
+    role: str           # 'user' | 'assistant'
+    content: str
+    source: str = ""
+    sources_json: str = "[]"   # raw JSON string; frontend parses it
+    is_error: bool = False
+    error_code: str = ""
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ConversationSummary(BaseModel):
+    """Lightweight representation for the sidebar list (no messages)."""
+    id: str
+    title: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ConversationDetail(BaseModel):
+    """Full conversation including all messages."""
+    id: str
+    title: str
+    created_at: datetime
+    updated_at: datetime
+    messages: list[MessageOut] = []
+
+    class Config:
+        from_attributes = True
+
+
+class DeleteConversationResponse(BaseModel):
+    message: str
+    id: str

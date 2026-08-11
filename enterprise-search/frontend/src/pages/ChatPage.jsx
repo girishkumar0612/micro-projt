@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Sparkles } from 'lucide-react'
 import AppShell from '../components/layout/AppShell'
@@ -14,17 +14,45 @@ const SUGGESTIONS = [
 ]
 
 export default function ChatPage() {
-  const { messages, isThinking, sendMessage, clearChat } = useChat()
+  const { messages, isThinking, conversationId, sendMessage, loadConversation, clearChat } = useChat()
   const bottomRef = useRef(null)
+  const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isThinking])
 
+  const prevConvIdRef = useRef(null)
+  useEffect(() => {
+    if (conversationId && conversationId !== prevConvIdRef.current) {
+      prevConvIdRef.current = conversationId
+      setHistoryRefreshTrigger((n) => n + 1)
+    }
+  }, [conversationId])
+
+  const handleSend = async (question) => {
+    await sendMessage(question)
+    setHistoryRefreshTrigger((n) => n + 1)
+  }
+
+  const handleNewChat = () => {
+    clearChat()
+    setHistoryRefreshTrigger((n) => n + 1)
+  }
+
   return (
     <AppShell
       title="Ask a question"
-      sidebarProps={{ chatMessages: messages, onNewChat: clearChat }}
+      sidebarProps={{
+        onNewChat: handleNewChat,
+        onSelectConversation: loadConversation,
+        activeConversationId: conversationId,
+        historyRefreshTrigger,
+        onConversationDeleted: (id) => {
+          if (id === conversationId) clearChat()
+          setHistoryRefreshTrigger((n) => n + 1)
+        },
+      }}
     >
       <div className="flex flex-col h-full max-w-3xl mx-auto w-full px-4 md:px-0">
         <div className="flex-1 overflow-y-auto py-6 flex flex-col gap-5">
@@ -45,7 +73,7 @@ export default function ChatPage() {
                 {SUGGESTIONS.map((s) => (
                   <button
                     key={s}
-                    onClick={() => sendMessage(s)}
+                    onClick={() => handleSend(s)}
                     className="text-xs rounded-full border border-ink/10 bg-white px-3.5 py-2 text-ink-soft
                       hover:border-brand-indigo/40 hover:text-brand-indigo transition-colors"
                   >
@@ -73,7 +101,7 @@ export default function ChatPage() {
         </div>
 
         <div className="sticky bottom-0 pb-5 pt-2 bg-gradient-to-t from-canvas via-canvas to-transparent">
-          <ChatInput onSend={sendMessage} disabled={isThinking} />
+          <ChatInput onSend={handleSend} disabled={isThinking} />
           <p className="text-[11px] text-ink-faint text-center mt-2">
             Nexus answers only from indexed enterprise documents and cites its source.
           </p>
