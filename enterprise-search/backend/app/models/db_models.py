@@ -1,12 +1,13 @@
 """
 SQLAlchemy ORM models.
-- Document: PDF metadata (vectors live in FAISS, see rag/vectorstore.py).
+- Document:     PDF metadata (vectors live in FAISS, see rag/vectorstore.py).
 - Conversation: A named chat session belonging to one user.
-- Message: An individual turn (user or assistant) inside a conversation.
+- Message:      An individual turn (user or assistant) inside a conversation.
+- AuditEvent:   Immutable append-only audit log for the monitoring dashboard.
 """
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, Integer, DateTime, Text, ForeignKey, UniqueConstraint
+from sqlalchemy import String, Integer, DateTime, Text, ForeignKey, UniqueConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.database import Base
 
@@ -103,3 +104,68 @@ class Message(Base):
     )
 
     conversation: Mapped["Conversation"] = relationship("Conversation", back_populates="messages")
+
+
+class AuditEvent(Base):
+    """
+    Append-only audit / activity log.
+
+    Every significant action in the system writes one row here:
+    queries, RBAC denials, document uploads/deletes, access changes,
+    guardrail blocks, and admin actions.
+
+    Event type taxonomy (stored in event_type column):
+      Query Activity   : QUERY_SUCCESS | QUERY_FAILED | QUERY_NO_DOCS
+      Security Events  : RBAC_DENIED | UNAUTH_ACCESS | PROMPT_INJECTION
+                         OUT_OF_SCOPE | GUARDRAIL_BLOCKED
+      Document Activity: DOC_UPLOADED | DOC_DUPLICATE | DOC_DELETED
+                         DOC_ACCESS_CHANGED | SUMMARY_GENERATED
+      System           : LOGIN_FAILED (reserved for future)
+
+    Result taxonomy (stored in result column):
+      success | denied | blocked | failed | info
+
+    Design notes:
+    - Rows are never mutated or deleted (append-only audit trail).
+    - Sensitive document content is never stored; only IDs, filenames,
+      and metadata are recorded.
+    - Composite indexes cover the three most common filter axes:
+      (timestamp DESC), (user_id, timestamp), (event_type, timestamp).
+    """
+    __tablename__ = "audit_events"
+    __table_args__ = (
+        # Fast descending time-range queries (default dashboard view)
+        Index("ix_audit_events_timestamp", "timestamp"),
+        # Filter by user across time
+        Index("ix_audit_events_user_id_timestamp", "user_id", "timestamp"),
+        # Filter by event type across time
+        Index("ix_audit_events_event_type_timestamp", "event_type", "timestamp"),
+        # Filter by result (success/denied/blocked/failed)
+        Index("ix_audit_events_result", "result"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+
+    # When — stored as UTC, always set at insert time
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+    # Who — user identifiers from request headers (may be empty for unauthenticated)
+    user_id: Mapped[str] = mapped_column(String, default="")
+    user_name: Mapped[str] = mapped_column(String, default="")
+    user_role: Mapped[str] = mapped_column(String, default="")
+
+    # What happened
+    event_type: Mapped[str] = mapped_column(String, nullable=False)  # see taxonomy above
+    action: Mapped[str] = mapped_column(String, default="")          # human-readable label
+    result: Mapped[str] = mapped_column(
+        String, nullable=False, default="info"
+    )  # success | denied | blocked | failed | info
+
+    # Document context (filled only for document-related events)
+    document_id: Mapped[str] = mapped_column(String, default="")
+    document_name: Mapped[str] = mapped_column(String, default="")
+
+    # Extra detail — short free-text, no document content
+    detail: Mapped[str] = mapped_column(Text, default="")

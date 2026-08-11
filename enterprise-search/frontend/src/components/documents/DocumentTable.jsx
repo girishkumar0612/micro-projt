@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileText, Trash2, Loader2, Globe, Users, ShieldCheck, CheckCircle2, Clock, AlertCircle, ChevronDown, Sparkles } from 'lucide-react'
+import { FileText, Trash2, Loader2, Globe, Users, ShieldCheck, CheckCircle2, Clock, AlertCircle, ChevronDown, Sparkles, Pencil } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // ── Badge configs ─────────────────────────────────────────────────────────────
@@ -17,11 +17,12 @@ const ACCESS_CONFIG = {
 }
 
 const ROLE_CONFIG = {
-  admin:     { label: 'Admin',     cls: 'bg-violet-100  text-violet-700  border-violet-200'  },
-  hr:        { label: 'HR',        cls: 'bg-pink-100    text-pink-700    border-pink-200'    },
-  finance:   { label: 'Finance',   cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  it:        { label: 'IT',        cls: 'bg-orange-100  text-orange-700  border-orange-200'  },
-  marketing: { label: 'Marketing', cls: 'bg-rose-100    text-rose-700    border-rose-200'    },
+  admin:      { label: 'Admin',      cls: 'bg-violet-100  text-violet-700  border-violet-200'  },
+  hr:         { label: 'HR',         cls: 'bg-pink-100    text-pink-700    border-pink-200'    },
+  finance:    { label: 'Finance',    cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  it:         { label: 'IT',         cls: 'bg-orange-100  text-orange-700  border-orange-200'  },
+  marketing:  { label: 'Marketing',  cls: 'bg-rose-100    text-rose-700    border-rose-200'    },
+  operations: { label: 'Operations', cls: 'bg-teal-100    text-teal-700    border-teal-200'    },
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -113,7 +114,7 @@ function Th({ children, first, last, hidden }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function DocumentTable({ documents, isLoading, onDelete, isAdmin, showMeta = false }) {
+export default function DocumentTable({ documents, isLoading, onDelete, onEdit, isAdmin, showMeta = false }) {
   const [expandedId, setExpandedId] = useState(null)
 
   if (isLoading) {
@@ -212,15 +213,29 @@ export default function DocumentTable({ documents, isLoading, onDelete, isAdmin,
 
                       {isAdmin && (
                         <td className="px-4 py-3.5 text-right">
-                          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}
-                            onClick={() => onDelete(doc)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity duration-150
-                              inline-flex items-center justify-center h-8 w-8 rounded-lg
-                              text-ink-faint hover:text-red-600 hover:bg-red-50
-                              border border-transparent hover:border-red-200 transition-colors"
-                            aria-label={`Delete ${doc.filename}`}>
-                            <Trash2 size={14} />
-                          </motion.button>
+                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                            {/* Edit access */}
+                            {onEdit && (
+                              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}
+                                onClick={() => onEdit(doc)}
+                                className="inline-flex items-center justify-center h-8 w-8 rounded-lg
+                                  text-ink-faint hover:text-brand-indigo hover:bg-brand-indigo/8
+                                  border border-transparent hover:border-brand-indigo/20 transition-colors"
+                                aria-label={`Edit access for ${doc.filename}`}
+                                title="Edit access">
+                                <Pencil size={13} />
+                              </motion.button>
+                            )}
+                            {/* Delete */}
+                            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}
+                              onClick={() => onDelete(doc)}
+                              className="inline-flex items-center justify-center h-8 w-8 rounded-lg
+                                text-ink-faint hover:text-red-600 hover:bg-red-50
+                                border border-transparent hover:border-red-200 transition-colors"
+                              aria-label={`Delete ${doc.filename}`}>
+                              <Trash2 size={14} />
+                            </motion.button>
+                          </div>
                         </td>
                       )}
                     </motion.tr>

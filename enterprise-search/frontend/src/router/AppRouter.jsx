@@ -2,11 +2,12 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import ProtectedRoute from '../components/auth/ProtectedRoute'
 
-import LoginPage         from '../pages/LoginPage'
-import LandingPage       from '../pages/LandingPage'
-import AdminDocumentsPage from '../pages/admin/AdminDocumentsPage'
-import EmployeeChatPage  from '../pages/employee/EmployeeChatPage'
-import EmployeeDocsPage  from '../pages/employee/EmployeeDocsPage'
+import LoginPage          from '../pages/LoginPage'
+import LandingPage        from '../pages/LandingPage'
+import AdminDocumentsPage  from '../pages/admin/AdminDocumentsPage'
+import AdminMonitoringPage from '../pages/admin/AdminMonitoringPage'
+import EmployeeChatPage   from '../pages/employee/EmployeeChatPage'
+import EmployeeDocsPage   from '../pages/employee/EmployeeDocsPage'
 
 function RootRedirect() {
   const { currentUser } = useAuth()
@@ -34,6 +35,14 @@ export default function AppRouter() {
           element={
             <ProtectedRoute requiredRole="admin">
               <AdminDocumentsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/monitoring"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminMonitoringPage />
             </ProtectedRoute>
           }
         />

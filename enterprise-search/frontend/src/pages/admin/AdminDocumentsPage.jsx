@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import {
   ShieldCheck, FileStack, Users, Globe, Upload,
-  ChevronRight, Info, CheckCircle2, Sparkles, Pencil, Loader2, Lock,
+  ChevronRight, Info, CheckCircle2, Sparkles, Pencil, Loader2, Lock, Save, X,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import AppShell from '../../components/layout/AppShell'
@@ -26,11 +26,12 @@ const ACCESS_LEVELS = [
 ]
 
 const ROLE_CONFIG = {
-  admin:     { label: 'Admin',     bg: 'bg-violet-100',  text: 'text-violet-700',  border: 'border-violet-200',  activeBg: 'bg-violet-600',  activeText: 'text-white' },
-  hr:        { label: 'HR',        bg: 'bg-pink-100',    text: 'text-pink-700',    border: 'border-pink-200',    activeBg: 'bg-pink-600',    activeText: 'text-white' },
-  finance:   { label: 'Finance',   bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', activeBg: 'bg-emerald-600', activeText: 'text-white' },
-  it:        { label: 'IT',        bg: 'bg-orange-100',  text: 'text-orange-700',  border: 'border-orange-200',  activeBg: 'bg-orange-600',  activeText: 'text-white' },
-  marketing: { label: 'Marketing', bg: 'bg-rose-100',    text: 'text-rose-700',    border: 'border-rose-200',    activeBg: 'bg-rose-600',    activeText: 'text-white' },
+  admin:      { label: 'Admin',      bg: 'bg-violet-100',  text: 'text-violet-700',  border: 'border-violet-200',  activeBg: 'bg-violet-600',  activeText: 'text-white' },
+  hr:         { label: 'HR',         bg: 'bg-pink-100',    text: 'text-pink-700',    border: 'border-pink-200',    activeBg: 'bg-pink-600',    activeText: 'text-white' },
+  finance:    { label: 'Finance',    bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200', activeBg: 'bg-emerald-600', activeText: 'text-white' },
+  it:         { label: 'IT',         bg: 'bg-orange-100',  text: 'text-orange-700',  border: 'border-orange-200',  activeBg: 'bg-orange-600',  activeText: 'text-white' },
+  marketing:  { label: 'Marketing',  bg: 'bg-rose-100',    text: 'text-rose-700',    border: 'border-rose-200',    activeBg: 'bg-rose-600',    activeText: 'text-white' },
+  operations: { label: 'Operations', bg: 'bg-teal-100',    text: 'text-teal-700',    border: 'border-teal-200',    activeBg: 'bg-teal-600',    activeText: 'text-white' },
 }
 const ALL_ROLES = Object.keys(ROLE_CONFIG)
 const DEFAULT_META = { department: 'General', access_level: 'internal', allowed_roles: ['admin'] }
@@ -129,8 +130,162 @@ function DuplicateBanner({ detail, onDismiss }) {
 }
 
 
+// ── Edit Access modal ─────────────────────────────────────────────────────────
+/**
+ * Inline modal for changing a document's department and allowed roles.
+ *
+ * What it does NOT touch (on purpose):
+ *   - The PDF file, SHA-256 hash, embeddings, summary, or document ID.
+ *
+ * RBAC change takes effect immediately after save: the backend writes the
+ * new allowed_roles to SQLite and get_allowed_doc_ids() reads it fresh on
+ * every subsequent /ask request — no restart or re-index needed.
+ */
+function EditAccessModal({ doc, onClose, onSave }) {
+  const [department, setDepartment] = useState(doc.department || 'General')
+  const [selectedRoles, setSelectedRoles] = useState(
+    () => doc.allowed_roles?.split(',').map((r) => r.trim()).filter(Boolean) ?? ['admin']
+  )
+  const [saving, setSaving] = useState(false)
+
+  const toggleRole = (role) =>
+    setSelectedRoles((prev) =>
+      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
+    )
+
+  const handleSave = async () => {
+    if (selectedRoles.length === 0) return
+    setSaving(true)
+    await onSave({ department, allowed_roles: selectedRoles.join(',') })
+    setSaving(false)
+  }
+
+  // Detect unchanged to give the save button a helpful disabled state
+  const unchanged =
+    department === doc.department &&
+    selectedRoles.slice().sort().join(',') ===
+      (doc.allowed_roles?.split(',').map((r) => r.trim()).filter(Boolean) ?? []).slice().sort().join(',')
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 8 }}
+        transition={{ duration: 0.18 }}
+        className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-ink/[0.07] overflow-hidden"
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between px-6 py-5 border-b border-ink/[0.06]">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-8 w-8 rounded-lg bg-brand-indigo/10 flex items-center justify-center shrink-0">
+              <Pencil size={14} className="text-brand-indigo" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-ink">Edit Access</p>
+              <p className="text-xs text-ink-faint truncate max-w-[260px] mt-0.5" title={doc.filename}>
+                {doc.filename}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-ink-faint hover:text-ink transition-colors p-1 rounded-lg hover:bg-ink/[0.04] shrink-0 ml-2"
+            aria-label="Close"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Notice — reassures admin that PDF/embeddings are not touched */}
+        <div className="mx-6 mt-4 flex items-start gap-2.5 rounded-xl bg-brand-indigo/[0.05] border border-brand-indigo/10 px-3.5 py-3">
+          <Info size={13} className="text-brand-indigo shrink-0 mt-0.5" />
+          <p className="text-[11px] text-ink-soft leading-relaxed">
+            This changes only department &amp; access permissions.
+            The PDF, summary, embeddings, and document ID are not affected.
+            Changes take effect immediately on the next search.
+          </p>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5 flex flex-col gap-5">
+          {/* Department */}
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-semibold text-ink-soft tracking-wide uppercase">Department</label>
+            <select
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              disabled={saving}
+              className="rounded-xl border border-ink/10 bg-canvas px-3.5 py-2.5 text-sm text-ink
+                focus:outline-none focus:ring-2 focus:ring-brand-indigo/25 focus:border-brand-indigo
+                transition-all appearance-none cursor-pointer disabled:opacity-60"
+            >
+              {DEPARTMENTS.map((d) => <option key={d}>{d}</option>)}
+            </select>
+          </div>
+
+          {/* Allowed Roles */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-ink-soft tracking-wide uppercase">Allowed Roles</label>
+              <span className="text-[11px] text-ink-faint">{selectedRoles.length} of {ALL_ROLES.length} selected</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {ALL_ROLES.map((role) => {
+                const cfg = ROLE_CONFIG[role]
+                const selected = selectedRoles.includes(role)
+                return (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => !saving && toggleRole(role)}
+                    disabled={saving}
+                    className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5
+                      text-xs font-medium transition-all duration-150 focus:outline-none
+                      ${selected
+                        ? `${cfg.activeBg} ${cfg.activeText} border-transparent shadow-sm`
+                        : `${cfg.bg} ${cfg.text} ${cfg.border} hover:opacity-80`}
+                      ${saving ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  >
+                    {selected && <CheckCircle2 size={11} strokeWidth={2.5} />}
+                    {cfg.label}
+                  </button>
+                )
+              })}
+            </div>
+            {selectedRoles.length === 0 && (
+              <div className="flex items-center gap-1.5 text-[11px] text-state-danger mt-0.5">
+                <Info size={11} /> At least one role must be selected.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-ink/[0.06] bg-canvas/40">
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={saving || selectedRoles.length === 0 || unchanged}
+          >
+            {saving ? (
+              <span className="flex items-center gap-1.5"><Loader2 size={13} className="animate-spin" /> Saving…</span>
+            ) : (
+              <span className="flex items-center gap-1.5"><Save size={13} /> Save changes</span>
+            )}
+          </Button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+
 export default function AdminDocumentsPage() {
-  const { documents, isLoading, fetchDocuments, deleteDocument } = useDocuments()
+  const { documents, isLoading, fetchDocuments, deleteDocument, updateDocumentAccess } = useDocuments()
   const { showToast } = useToast()
 
   const [step, setStep] = useState('idle')   // idle | summarizing | configuring | uploading
@@ -142,6 +297,8 @@ export default function AdminDocumentsPage() {
   const [deleting, setDeleting] = useState(false)
   // Set to { detail: string } when backend returns DUPLICATE_DOCUMENT (409)
   const [duplicateError, setDuplicateError] = useState(null)
+  // Set to the document object when the admin clicks "Edit access"
+  const [editDoc, setEditDoc] = useState(null)
 
   const resetFlow = () => {
     setStep('idle')
@@ -209,6 +366,18 @@ export default function AdminDocumentsPage() {
         showToast(err.friendlyMessage || 'Upload failed.', 'error')
         setStep('configuring')
       }
+    }
+  }
+
+  // ── Edit Access ────────────────────────────────────────────────────────────
+  const handleSaveAccess = async ({ department, allowed_roles }) => {
+    if (!editDoc) return
+    try {
+      await updateDocumentAccess(editDoc.id, { department, allowed_roles })
+      showToast(`Access updated for "${editDoc.filename}".`, 'success')
+      setEditDoc(null)
+    } catch (err) {
+      showToast(err.friendlyMessage || 'Failed to update access.', 'error')
     }
   }
 
@@ -441,9 +610,18 @@ export default function AdminDocumentsPage() {
               </span>
             )}
           </div>
-          <DocumentTable documents={documents} isLoading={isLoading} onDelete={setPendingDelete} isAdmin={true} showMeta={true} />
+          <DocumentTable documents={documents} isLoading={isLoading} onDelete={setPendingDelete} onEdit={setEditDoc} isAdmin={true} showMeta={true} />
         </section>
       </div>
+
+      {/* Edit Access modal */}
+      {editDoc && (
+        <EditAccessModal
+          doc={editDoc}
+          onClose={() => setEditDoc(null)}
+          onSave={handleSaveAccess}
+        />
+      )}
 
       {/* Delete modal */}
       <Modal open={!!pendingDelete} onClose={() => !deleting && setPendingDelete(null)} title="Delete this document?"

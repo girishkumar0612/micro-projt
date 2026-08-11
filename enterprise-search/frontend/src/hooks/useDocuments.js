@@ -26,9 +26,25 @@ export function useDocuments() {
     setDocuments((prev) => prev.filter((d) => d.id !== id))
   }, [])
 
+  // updateDocumentAccess patches only department + allowed_roles.
+  // The backend enforces admin-only via X-Admin-Token.
+  // Returns the updated document so the caller can patch local state.
+  const updateDocumentAccess = useCallback(async (id, { department, allowed_roles }) => {
+    const res = await axiosClient.patch(`/documents/${id}/access`, {
+      department,
+      allowed_roles,
+    })
+    // Patch the document in the local list so the table updates immediately
+    // without a full re-fetch.
+    setDocuments((prev) =>
+      prev.map((d) => (d.id === id ? { ...d, ...res.data } : d))
+    )
+    return res.data
+  }, [])
+
   useEffect(() => {
     fetchDocuments()
   }, [fetchDocuments])
 
-  return { documents, isLoading, error, fetchDocuments, deleteDocument }
+  return { documents, isLoading, error, fetchDocuments, deleteDocument, updateDocumentAccess }
 }

@@ -189,6 +189,50 @@ def upload_document(
         raise
 
 
+def update_document_access(
+    db: Session,
+    document_id: str,
+    department: str,
+    allowed_roles: str,
+) -> Document:
+    """
+    Metadata-only update — modifies department and allowed_roles for an
+    existing document.
+
+    What is intentionally NOT touched:
+      • The PDF file on disk
+      • The SHA-256 hash
+      • The FAISS vector index / embeddings
+      • The AI-generated summary
+      • The document ID, filename, status, chunks_indexed, or size_kb
+
+    RBAC enforcement takes effect immediately: the next call to
+    get_allowed_doc_ids() reads allowed_roles fresh from the DB, so adding
+    or removing a role propagates to search results on the very next query.
+    """
+    doc = get_document(db, document_id)
+
+    # Normalise the roles string: lowercase, strip whitespace, deduplicate,
+    # then re-join so storage is consistent.
+    raw_roles = [r.strip().lower() for r in allowed_roles.split(",") if r.strip()]
+    if not raw_roles:
+        from app.utils.exceptions import AppException
+        raise AppException("allowed_roles must contain at least one role.", status_code=400, code="INVALID_REQUEST")
+
+    normalised_roles = ",".join(dict.fromkeys(raw_roles))   # preserves order, removes dupes
+
+    doc.department = department.strip()
+    doc.allowed_roles = normalised_roles
+    db.commit()
+    db.refresh(doc)
+
+    logger.info(
+        f"Access updated for '{doc.filename}' ({document_id}): "
+        f"dept='{doc.department}', roles='{doc.allowed_roles}'."
+    )
+    return doc
+
+
 def delete_document(db: Session, document_id: str) -> None:
     doc = get_document(db, document_id)
 

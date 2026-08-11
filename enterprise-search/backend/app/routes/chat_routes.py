@@ -1,18 +1,19 @@
 """
 POST /api/ask    — requires login (any role); RBAC filter applied per role.
                    Persists the exchange to the user's conversation history.
+                   Emits an audit event for every query outcome.
 GET  /api/health — basic readiness probe.
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.services import chat_service, document_service
-from app.services import conversation_service
+from app.services import chat_service, document_service, conversation_service
+from app.services import audit_service
 from app.models.schemas import AskRequest, AskResponse, HealthResponse
 from app.rag import vectorstore
 from app.utils.auth import get_user_role, get_user_id
-from app.utils.exceptions import AppException
+from app.utils.exceptions import AppException, AccessRestrictedError
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -26,25 +27,22 @@ def ask(
     db: Session = Depends(get_db),
     role: str = Depends(get_user_role),
     user_id: str = Depends(get_user_id),
+    x_user_name: str | None = Header(default=None),
 ):
     """
     Answer a question via the RAG pipeline and persist the exchange.
 
-    Flow:
-    1. Resolve allowed document IDs for the caller's role (RBAC).
-    2. Get or create a conversation owned by user_id.
-    3. Persist the user message.
-    4. Call chat_service (unchanged Groq/RAG path).
-    5. Persist the assistant message with source citations.
-    6. Commit and return the answer together with the conversation_id.
+    Audit events emitted:
+      QUERY_SUCCESS — question answered successfully
+      RBAC_DENIED   — role has no access to the relevant documents
+      QUERY_FAILED  — LLM error, no-docs, empty question, or any other AppException
 
-    Security:
-    - Ownership of the conversation_id is verified inside conversation_service.
-    - RBAC document filtering is applied exactly as before — loading an old
-      conversation does NOT bypass it; the retrieval happens fresh each time.
-    - Error responses (access-restricted, LLM errors, etc.) are also persisted
-      so the conversation history is complete.
+    All existing RBAC, RAG, Groq, guardrails, and conversation-history
+    logic is completely unchanged.
     """
+    question  = payload.question
+    user_name = (x_user_name or "").strip()
+
     # Step 1 — RBAC: resolve permitted document IDs for this role
     allowed_doc_ids = document_service.get_allowed_doc_ids(db, role)
 
@@ -53,34 +51,59 @@ def ask(
         db=db,
         user_id=user_id,
         conversation_id=payload.conversation_id,
-        first_question=payload.question,
+        first_question=question,
     )
 
     # Step 3 — Persist user message
-    conversation_service.append_user_message(db, conv, payload.question)
+    conversation_service.append_user_message(db, conv, question)
 
     # Step 4 — RAG + Groq (all existing logic untouched)
     try:
         result: AskResponse = chat_service.ask_question(
-            payload.question, allowed_doc_ids=allowed_doc_ids
+            question, allowed_doc_ids=allowed_doc_ids
         )
         # Step 5a — Persist assistant answer with citations
         conversation_service.append_assistant_message(db, conv, result)
 
-    except AppException as exc:
-        # Step 5b — Persist the error so the UI can replay it on reload
+    except AccessRestrictedError as exc:
+        # RBAC denial — the role's documents don't contain relevant content
         conversation_service.append_error_message(
             db, conv, exc.detail, error_code=exc.code
         )
         conversation_service.touch_conversation(db, conv)
         db.commit()
-        # Re-raise so the existing exception handler still sends the correct
-        # HTTP status code to the frontend
+        audit_service.log_rbac_denied(
+            db, user_id=user_id, user_name=user_name,
+            user_role=role, question=question,
+        )
+        raise
+
+    except AppException as exc:
+        # LLM error, no-docs-indexed, empty question, etc.
+        conversation_service.append_error_message(
+            db, conv, exc.detail, error_code=exc.code
+        )
+        conversation_service.touch_conversation(db, conv)
+        db.commit()
+        audit_service.log_query_failed(
+            db, user_id=user_id, user_name=user_name,
+            user_role=role, question=question, error_code=exc.code,
+        )
         raise
 
     # Step 6 — Commit and return
     conversation_service.touch_conversation(db, conv)
     db.commit()
+
+    # Audit: successful query
+    audit_service.log_query_success(
+        db,
+        user_id=user_id,
+        user_name=user_name,
+        user_role=role,
+        question=question,
+        source=result.source or "",
+    )
 
     return AskResponse(
         answer=result.answer,

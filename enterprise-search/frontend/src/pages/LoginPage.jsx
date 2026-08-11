@@ -7,11 +7,12 @@ import Button from '../components/common/Button'
 
 // Demo credential hint cards shown below the form
 const DEMO_USERS = [
-  { name: 'Admin User',    username: 'admin', role: 'admin',     color: 'text-brand-indigo' },
-  { name: 'Bob Smith',     username: 'bob',   role: 'hr',        color: 'text-brand-violet' },
-  { name: 'Carol White',   username: 'carol', role: 'finance',   color: 'text-state-warning' },
-  { name: 'Dave Lee',      username: 'dave',  role: 'it',        color: 'text-brand-cyan' },
-  { name: 'Eve Garcia',    username: 'eve',   role: 'marketing', color: 'text-pink-500' },
+  { name: 'Admin User',   username: 'admin', role: 'admin',      color: 'text-brand-indigo'  },
+  { name: 'Bob Smith',    username: 'bob',   role: 'hr',         color: 'text-brand-violet'  },
+  { name: 'Carol White',  username: 'carol', role: 'finance',    color: 'text-state-warning' },
+  { name: 'Dave Lee',     username: 'dave',  role: 'it',         color: 'text-brand-cyan'    },
+  { name: 'Eve Garcia',   username: 'eve',   role: 'marketing',  color: 'text-pink-500'      },
+  { name: 'Frank Torres', username: 'frank', role: 'operations', color: 'text-teal-600'      },
 ]
 
 export default function LoginPage() {

@@ -1,14 +1,15 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { MessageSquarePlus, FileStack, Home, LogOut, ShieldCheck, User, X } from 'lucide-react'
+import { MessageSquarePlus, FileStack, Home, LogOut, ShieldCheck, User, X, BarChart2 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import ChatHistorySidebar from '../chat/ChatHistorySidebar'
 
 const ROLE_STYLES = {
-  admin:     'bg-brand-indigo/10 text-brand-indigo',
-  hr:        'bg-brand-violet/10 text-brand-violet',
-  finance:   'bg-state-warning/10 text-state-warning',
-  it:        'bg-brand-cyan/10 text-brand-cyan',
-  marketing: 'bg-rose-500/10 text-rose-600',
+  admin:      'bg-brand-indigo/10 text-brand-indigo',
+  hr:         'bg-brand-violet/10 text-brand-violet',
+  finance:    'bg-state-warning/10 text-state-warning',
+  it:         'bg-brand-cyan/10 text-brand-cyan',
+  marketing:  'bg-rose-500/10 text-rose-600',
+  operations: 'bg-teal-500/10 text-teal-700',
 }
 
 function NavItem({ to, icon: Icon, label, onClick }) {
@@ -74,8 +75,9 @@ export default function Sidebar({
         <nav className="px-3 flex flex-col gap-1">
           {isAdmin ? (
             <>
-              <NavItem to="/admin/documents" icon={FileStack} label="Manage Documents" onClick={onCloseMobile} />
-              <NavItem to="/home" icon={Home} label="Home" onClick={onCloseMobile} />
+              <NavItem to="/admin/documents"  icon={FileStack}  label="Manage Documents" onClick={onCloseMobile} />
+              <NavItem to="/admin/monitoring" icon={BarChart2}  label="Monitoring"        onClick={onCloseMobile} />
+              <NavItem to="/home"             icon={Home}       label="Home"              onClick={onCloseMobile} />
             </>
           ) : (
             <>
