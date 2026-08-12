@@ -110,20 +110,36 @@ def delete_document(document_id: str) -> None:
         logger.info(f"Deleted {len(ids_to_delete)} chunks for document {document_id}")
 
 
-def similarity_search(query: str, k: int | None = None) -> list[dict]:
+def similarity_search(
+    query: str,
+    k: int | None = None,
+    allowed_document_ids: set[str] | None = None,
+) -> list[dict]:
     """
-    Returns [{ "text", "score", "source", "page" }, ...] sorted by relevance.
-    score is a normalized similarity in [0, 1] (higher = more relevant).
+    Returns [{ "text", "score", "source", "page", "document_id" }, ...] sorted by
+    relevance. score is a normalized similarity in [0, 1] (higher = more relevant).
+
+    When `allowed_document_ids` is provided, results from other documents are
+    filtered out (role-based access). FAISS has no metadata filtering, so we
+    over-fetch and filter client-side.
     """
     store = _get_store()
     if store is None:
         return []
 
     k = k or settings.top_k
-    results = store.similarity_search_with_score(query, k=k)
+    if allowed_document_ids is not None:
+        fetch_k = max(k * 5, 20)
+    else:
+        fetch_k = k
+
+    results = store.similarity_search_with_score(query, k=fetch_k)
 
     out = []
     for doc, distance in results:
+        document_id = doc.metadata.get("document_id")
+        if allowed_document_ids is not None and document_id not in allowed_document_ids:
+            continue
         # FAISS L2 distance on normalized embeddings -> convert to a rough
         # similarity score in [0, 1] for display purposes.
         similarity = max(0.0, 1 - (distance / 2))
@@ -132,5 +148,8 @@ def similarity_search(query: str, k: int | None = None) -> list[dict]:
             "score": round(float(similarity), 4),
             "source": doc.metadata.get("source", "unknown"),
             "page": doc.metadata.get("page"),
+            "document_id": document_id,
         })
+        if len(out) >= k:
+            break
     return out

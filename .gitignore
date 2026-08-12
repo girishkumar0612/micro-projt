@@ -1,0 +1,16 @@
+# Logs
+*.log
+
+# Node
+node_modules/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Environment (never commit secrets)
+.env
+.env.*
+!.env.example

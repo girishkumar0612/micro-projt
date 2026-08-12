@@ -1,13 +1,18 @@
 """
 Document service — business logic for document lifecycle:
 upload -> extract -> chunk -> embed -> index, plus list & delete.
+Also handles role-based visibility: every document carries a `roles` list
+(JSON string). An empty list means "visible to every logged-in role";
+otherwise only listed roles (plus admins) can see it.
+
 Routes call only this; this is the only layer allowed to touch both
 SQLite (metadata) and the rag/ package (vectors).
 """
+import json
 from pathlib import Path
 from sqlalchemy.orm import Session
 
-from app.models.db_models import Document
+from app.models.db_models import Document, User
 from app.rag.pdf_loader import extract_pages
 from app.rag.text_splitter import chunk_pages
 from app.rag import vectorstore
@@ -20,8 +25,31 @@ logger = get_logger(__name__)
 MAX_FILE_SIZE_MB = 20
 
 
-def list_documents(db: Session) -> list[Document]:
-    return db.query(Document).order_by(Document.uploaded_at.desc()).all()
+# ---------- Role-based visibility ----------
+
+def doc_roles(doc: Document) -> list[str]:
+    try:
+        return json.loads(doc.roles or "[]")
+    except (TypeError, json.JSONDecodeError):
+        return []
+
+
+def can_access(doc: Document, user: User) -> bool:
+    """Admins see everything. Otherwise the user's role must be in the doc's roles."""
+    if user.role == "admin":
+        return True
+    roles = doc_roles(doc)
+    return not roles or user.role in roles
+
+
+def accessible_document_ids(db: Session, user: User) -> set[str]:
+    return {d.id for d in db.query(Document).all() if can_access(d, user)}
+
+
+# ---------- CRUD ----------
+
+def list_documents(db: Session, user: User) -> list[Document]:
+    return [d for d in db.query(Document).order_by(Document.uploaded_at.desc()).all() if can_access(d, user)]
 
 
 def get_document(db: Session, document_id: str) -> Document:
@@ -31,7 +59,7 @@ def get_document(db: Session, document_id: str) -> Document:
     return doc
 
 
-def upload_document(db: Session, filename: str, file_bytes: bytes) -> Document:
+def upload_document(db: Session, filename: str, file_bytes: bytes, roles: list[str] | None = None) -> Document:
     if not filename.lower().endswith(".pdf"):
         raise InvalidFileTypeError("Only PDF files are supported.")
 
@@ -39,8 +67,11 @@ def upload_document(db: Session, filename: str, file_bytes: bytes) -> Document:
     if size_kb > MAX_FILE_SIZE_MB * 1024:
         raise FileTooLargeError(f"File exceeds the {MAX_FILE_SIZE_MB}MB limit.")
 
+    # Empty roles list = visible to everyone. Only valid role names are kept.
+    safe_roles = [r for r in (roles or []) if isinstance(r, str) and r.strip()]
+
     # Create DB row first (status=indexing) so it shows up immediately in the UI.
-    doc = Document(filename=filename, stored_path="", size_kb=size_kb, status="indexing")
+    doc = Document(filename=filename, stored_path="", size_kb=size_kb, status="indexing", roles=json.dumps(safe_roles))
     db.add(doc)
     db.commit()
     db.refresh(doc)
@@ -59,7 +90,7 @@ def upload_document(db: Session, filename: str, file_bytes: bytes) -> Document:
         doc.status = "ready"
         db.commit()
         db.refresh(doc)
-        logger.info(f"Document '{filename}' indexed successfully ({indexed_count} chunks).")
+        logger.info(f"Document '{filename}' indexed successfully ({indexed_count} chunks, roles={safe_roles}).")
         return doc
 
     except Exception:
