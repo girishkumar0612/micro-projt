@@ -62,6 +62,14 @@ def _find_by_hash(db: Session, hex_hash: str) -> Document | None:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
+def list_all_documents(db: Session) -> list[Document]:
+    """
+    Return ALL documents (all roles, all statuses) for the version filter.
+    This is a metadata-only read — no file I/O.  Called once per /ask request.
+    """
+    return db.query(Document).all()
+
+
 def list_documents(db: Session, role: str | None = None) -> list[Document]:
     """
     Return documents visible to the given role.

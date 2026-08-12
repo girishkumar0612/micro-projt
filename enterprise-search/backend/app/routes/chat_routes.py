@@ -45,6 +45,9 @@ def ask(
 
     # Step 1 — RBAC: resolve permitted document IDs for this role
     allowed_doc_ids = document_service.get_allowed_doc_ids(db, role)
+    # Fetch all Document rows so the version filter can build policy families.
+    # This is a cheap metadata-only query (no file I/O).
+    all_docs = document_service.list_all_documents(db)
 
     # Step 2 — Conversation: get existing or create new (ownership verified)
     conv = conversation_service.get_or_create_conversation(
@@ -60,7 +63,9 @@ def ask(
     # Step 4 — RAG + Groq (all existing logic untouched)
     try:
         result: AskResponse = chat_service.ask_question(
-            question, allowed_doc_ids=allowed_doc_ids
+            question,
+            allowed_doc_ids=allowed_doc_ids,
+            all_docs=all_docs,
         )
         # Step 5a — Persist assistant answer with citations
         conversation_service.append_assistant_message(db, conv, result)
