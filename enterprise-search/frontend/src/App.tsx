@@ -29,6 +29,15 @@ function RequireAdmin({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function AdminDocumentsRedirect() {
+  // Admins manage documents in the Admin section only — one place, no duplicate.
+  const role = useAuthStore((s) => s.user?.role);
+  if (role === 'admin') {
+    return <Navigate to="/admin/documents" replace />;
+  }
+  return <DocumentsPage />;
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -45,7 +54,7 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/search" element={<SearchPage />} />
-            <Route path="/documents" element={<DocumentsPage />} />
+            <Route path="/documents" element={<AdminDocumentsRedirect />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route
               path="/admin/monitoring"

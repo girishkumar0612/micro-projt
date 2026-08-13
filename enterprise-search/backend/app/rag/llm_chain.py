@@ -23,6 +23,17 @@ SYSTEM_PROMPT = (
     "naturally as if you simply know the policy.\n"
 )
 
+SUMMARY_PROMPT = (
+    "You are an expert corporate document analyst. Read the company document "
+    "below and write a concise executive summary (150-200 words) covering the "
+    "key policies, who they apply to, and any important numbers, dates, or "
+    "deadlines. Use plain language and short bullet points where helpful. "
+    "Write the summary directly — no preamble.\n"
+)
+
+# Summaries are fed a trimmed excerpt of the document, not the whole file.
+SUMMARY_MAX_CHARS = 8000
+
 
 @lru_cache(maxsize=1)
 def _get_llm() -> ChatGroq:
@@ -63,3 +74,26 @@ def generate_answer(question: str, chunks: list[dict]) -> str:
         raise LLMProviderError(
             "The assistant could not reach the language model right now. Please try again."
         )
+
+
+def generate_summary(document_text: str) -> str:
+    """Generates a concise executive summary for a document. Raises on failure."""
+    text = (document_text or "").strip()
+    if not text:
+        raise LLMProviderError("Nothing to summarize — document has no text.")
+
+    user_prompt = (
+        f"Document:\n{text[:SUMMARY_MAX_CHARS]}\n\n"
+        f"Executive summary:"
+    )
+
+    try:
+        llm = _get_llm()
+        response = llm.invoke([
+            SystemMessage(content=SUMMARY_PROMPT),
+            HumanMessage(content=user_prompt),
+        ])
+        return response.content.strip()
+    except Exception as exc:
+        logger.error(f"Groq summary call failed: {exc}")
+        raise LLMProviderError("Could not generate a summary for this document.")

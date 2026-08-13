@@ -14,7 +14,10 @@ class DocumentOut(BaseModel):
     size_kb: int
     chunks_indexed: int
     status: str
+    department: str = "Other"
+    access: str = "Internal"
     roles: list[str] = []
+    summary: str = ""
     uploaded_at: datetime
 
     class Config:
@@ -39,7 +42,16 @@ class UploadResponse(BaseModel):
     chunks_indexed: int
     uploaded_at: datetime
     status: str
+    department: str = "Other"
+    access: str = "Internal"
     roles: list[str] = []
+    summary: str = ""
+
+
+class DocumentSummaryResponse(BaseModel):
+    document_id: str
+    filename: str
+    summary: str
 
 
 class DeleteResponse(BaseModel):

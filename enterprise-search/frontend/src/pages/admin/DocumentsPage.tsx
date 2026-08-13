@@ -3,6 +3,7 @@ import { CheckCircle2 } from 'lucide-react';
 import { Spinner } from '@/components/ui';
 import { UploadDropzone } from '@/components/admin/documents/UploadDropzone';
 import { DocumentTable } from '@/components/admin/documents/DocumentTable';
+import { DocumentSummaryModal } from '@/components/admin/documents/DocumentSummaryModal';
 import { getAdminDocuments } from '@/services/admin/documentService';
 import type { AdminDocument, UploadResult } from '@/types';
 import { cn } from '@/utils';
@@ -12,6 +13,7 @@ export function DocumentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<UploadResult | null>(null);
+  const [summaryDoc, setSummaryDoc] = useState<AdminDocument | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -38,14 +40,19 @@ export function DocumentsPage() {
         name: result.name,
         size_kb: 0,
         chunks: 0,
-        department: '—',
-        access: 'Internal',
+        department: result.department,
+        access: result.access,
         roles: [],
         uploaded_at: new Date().toISOString(),
-        status: 'processing',
+        status: result.status,
+        summary: result.summary ?? '',
       },
       ...prev,
     ]);
+  };
+
+  const handleShowSummary = (doc: AdminDocument) => {
+    setSummaryDoc(doc);
   };
 
   return (
@@ -73,8 +80,10 @@ export function DocumentsPage() {
       ) : error ? (
         <div className="text-center py-16 text-sm text-red-500">{error}</div>
       ) : (
-        <DocumentTable documents={documents} />
+        <DocumentTable documents={documents} onShowSummary={handleShowSummary} />
       )}
+
+      <DocumentSummaryModal document={summaryDoc} onClose={() => setSummaryDoc(null)} />
     </div>
   );
 }

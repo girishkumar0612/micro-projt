@@ -38,6 +38,10 @@ export function Sidebar() {
   const navigate = useNavigate();
   const demo = isDemoMode();
 
+  // Admins manage documents from the Admin section; hide the Workspace
+  // "Documents" entry so there is no duplicate.
+  const visibleNav = user?.role === 'admin' ? nav.filter((n) => n.to !== '/documents') : nav;
+
   const handleLogout = () => {
     logout();
     navigate('/login', { replace: true });
@@ -86,7 +90,7 @@ export function Sidebar() {
           <p className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">
             Workspace
           </p>
-          {nav.map((item) => (
+          {visibleNav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

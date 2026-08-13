@@ -1,150 +1,102 @@
 // Admin → Document management service.
 //
-// Currently serves MOCK data shaped like a real API response. To connect a live
-// backend later, replace the function bodies with httpClient calls — the
-// UploadDropzone and DocumentTable components need no changes.
+// Calls the real FastAPI backend (/api/documents, /api/upload). The backend
+// auto-generates an executive summary when a document is uploaded and exposes
+// it through the documents list plus GET /api/documents/{id}/summary.
 
-import type { AdminDocument, AdminDocumentsResponse, UploadResult } from '@/types';
-
-// Small artificial delay so loading/uploading states are visible and honest.
-const LATENCY_MS = 400;
-
-function delay<T>(value: T, ms = LATENCY_MS): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
+import { httpClient } from '@/services/apiClient';
+import { ENDPOINTS } from '@/services/endpoints';
+import type { AdminDocument, AdminDocumentStatus, AdminDocumentsResponse, DocumentAccess, UploadResult } from '@/types';
 
 export const MAX_UPLOAD_MB = 20;
 
-const MOCK_ADMIN_DOCUMENTS: AdminDocument[] = [
-  {
-    id: 'd1',
-    name: 'Employee Handbook 2026.pdf',
-    size_kb: 1420,
-    chunks: 34,
-    department: 'HR',
-    access: 'Internal',
-    roles: [],
-    uploaded_at: '2026-08-10T09:12:00Z',
-    status: 'ready',
-  },
-  {
-    id: 'd2',
-    name: 'Code of Conduct v2.5.pdf',
-    size_kb: 612,
-    chunks: 16,
-    department: 'Legal',
-    access: 'Internal',
-    roles: ['hr', 'legal', 'manager'],
-    uploaded_at: '2026-08-09T14:40:00Z',
-    status: 'ready',
-  },
-  {
-    id: 'd3',
-    name: 'Executive Compensation Plan.pdf',
-    size_kb: 340,
-    chunks: 9,
-    department: 'Finance',
-    access: 'Confidential',
-    roles: ['admin', 'finance'],
-    uploaded_at: '2026-08-08T11:05:00Z',
-    status: 'ready',
-  },
-  {
-    id: 'd4',
-    name: 'Information Security Handbook.pdf',
-    size_kb: 2210,
-    chunks: 48,
-    department: 'Security',
-    access: 'Internal',
-    roles: ['security', 'it'],
-    uploaded_at: '2026-08-07T16:22:00Z',
-    status: 'ready',
-  },
-  {
-    id: 'd5',
-    name: 'Marketing Brand Guidelines.pdf',
-    size_kb: 8750,
-    chunks: 21,
-    department: 'Marketing',
-    access: 'Internal',
-    roles: ['marketing'],
-    uploaded_at: '2026-08-06T10:30:00Z',
-    status: 'processing',
-  },
-  {
-    id: 'd6',
-    name: 'M&A Due Diligence Notes.pdf',
-    size_kb: 5120,
-    chunks: 0,
-    department: 'Finance',
-    access: 'Confidential',
-    roles: ['admin', 'finance', 'legal'],
-    uploaded_at: '2026-08-05T13:55:00Z',
-    status: 'failed',
-  },
-  {
-    id: 'd7',
-    name: 'Remote Work Policy.pdf',
-    size_kb: 205,
-    chunks: 6,
-    department: 'HR',
-    access: 'Internal',
-    roles: [],
-    uploaded_at: '2026-08-04T08:15:00Z',
-    status: 'ready',
-  },
-  {
-    id: 'd8',
-    name: 'Procurement Playbook.pdf',
-    size_kb: 980,
-    chunks: 27,
-    department: 'Operations',
-    access: 'Internal',
-    roles: ['operations', 'finance', 'manager'],
-    uploaded_at: '2026-08-03T12:00:00Z',
-    status: 'ready',
-  },
-  {
-    id: 'd9',
-    name: '2026 Benefits & Insurance.pdf',
-    size_kb: 1340,
-    chunks: 31,
-    department: 'HR',
-    access: 'Confidential',
-    roles: ['admin', 'hr'],
-    uploaded_at: '2026-08-02T09:48:00Z',
-    status: 'ready',
-  },
-  {
-    id: 'd10',
-    name: 'Sales Compensation Plan.pdf',
-    size_kb: 720,
-    chunks: 14,
-    department: 'Finance',
-    access: 'Confidential',
-    roles: ['admin', 'finance', 'operations'],
-    uploaded_at: '2026-07-31T15:30:00Z',
-    status: 'ready',
-  },
-];
+export const DEPARTMENTS = ['HR', 'IT', 'Finance', 'Legal', 'Operations', 'Security', 'Other'] as const;
 
-export async function getAdminDocuments(): Promise<AdminDocumentsResponse> {
-  // TODO: replace with `httpClient.get<AdminDocumentsResponse>(ENDPOINTS.adminDocuments)`
-  // when the backend exposes GET /admin/documents.
-  return delay({ documents: MOCK_ADMIN_DOCUMENTS, total: MOCK_ADMIN_DOCUMENTS.length });
+function asString(v: unknown): string | null {
+  if (typeof v === 'string' && v.trim()) return v;
+  if (typeof v === 'number') return String(v);
+  return null;
 }
 
-export async function uploadAdminDocument(name: string): Promise<UploadResult> {
-  // TODO: replace with a multipart POST via httpClient once the backend
-  // exposes POST /admin/documents (mirror apiService.uploadDocument).
-  const id = `new-${Math.random().toString(36).slice(2, 9)}`;
-  return delay(
-    {
-      id,
-      name,
-      status: 'processing',
-      message: `${name} received — indexing in progress.`,
-    },
-    1500,
+const uid = () => Math.random().toString(36).slice(2, 11);
+
+// Backend status "indexing" maps to the frontend's "processing".
+function toStatus(raw: unknown): AdminDocumentStatus {
+  const s = asString(raw) ?? 'processing';
+  if (s === 'ready' || s === 'failed') return s;
+  return 'processing';
+}
+
+function toAccess(raw: unknown): DocumentAccess {
+  return asString(raw) === 'Confidential' ? 'Confidential' : 'Internal';
+}
+
+function toAdminDocument(d: Record<string, unknown>): AdminDocument {
+  const filename = asString(d.filename) ?? 'Untitled document';
+  return {
+    id: asString(d.id) ?? filename,
+    name: filename,
+    size_kb: Number(d.size_kb) || 0,
+    chunks: Number(d.chunks_indexed) || 0,
+    department: asString(d.department) ?? 'Other',
+    access: toAccess(d.access),
+    roles: Array.isArray(d.roles) ? d.roles.filter((r) => typeof r === 'string') : [],
+    uploaded_at: asString(d.uploaded_at) ?? new Date().toISOString(),
+    status: toStatus(d.status),
+    summary: asString(d.summary) ?? '',
+  };
+}
+
+export async function getAdminDocuments(): Promise<AdminDocumentsResponse> {
+  const { data } = await httpClient.get<unknown[]>(ENDPOINTS.documents);
+  const list = Array.isArray(data)
+    ? data.map((d) => toAdminDocument(d as Record<string, unknown>))
+    : [];
+  return { documents: list, total: list.length };
+}
+
+export interface UploadOptions {
+  access?: DocumentAccess;
+  department?: string;
+}
+
+export async function uploadAdminDocument(file: File, options: UploadOptions = {}): Promise<UploadResult> {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('access', options.access ?? 'Internal');
+  form.append('department', options.department ?? 'Other');
+  const { data } = await httpClient.post<Record<string, unknown>>(
+    ENDPOINTS.upload,
+    form,
+    { headers: { 'Content-Type': undefined } },
   );
+  const status = toStatus(data.status);
+  const name = asString(data.filename) ?? file.name;
+  return {
+    id: asString(data.id) ?? uid(),
+    name,
+    status,
+    message:
+      status === 'ready'
+        ? `${name} uploaded and indexed.`
+        : `${name} received — indexing in progress.`,
+    department: asString(data.department) ?? options.department ?? 'Other',
+    access: toAccess(data.access),
+    summary: asString(data.summary) ?? '',
+  };
+}
+
+export async function getDocumentSummary(
+  id: string,
+): Promise<{ documentId: string; filename: string; summary: string }> {
+  const { data } = await httpClient.get<{
+    document_id?: unknown;
+    filename?: unknown;
+    summary?: unknown;
+  }>(ENDPOINTS.documentSummary(id));
+  return {
+    documentId: asString(data.document_id) ?? id,
+    filename: asString(data.filename) ?? '',
+    summary: asString(data.summary) ?? '',
+  };
 }

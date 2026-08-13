@@ -10,6 +10,7 @@ export const ENDPOINTS = {
   ask: '/ask',
   documents: '/documents',
   document: (id: string) => `/documents/${id}`,
+  documentSummary: (id: string) => `/documents/${id}/summary`,
   upload: '/upload',
   health: '/health',
 

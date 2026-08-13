@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FileText, HardDrive, Layers, CalendarDays, Lock, Globe } from 'lucide-react';
+import { FileText, HardDrive, Layers, CalendarDays, Lock, Globe, FileSearch } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
 import { cn } from '@/utils';
 import { ROLE_LABELS, ROLE_BADGE_STYLES } from '@/utils/roles';
@@ -38,7 +38,13 @@ function AccessBadge({ access }: { access: DocumentAccess }) {
   );
 }
 
-export function DocumentTable({ documents }: { documents: AdminDocument[] }) {
+export function DocumentTable({
+  documents,
+  onShowSummary,
+}: {
+  documents: AdminDocument[];
+  onShowSummary: (d: AdminDocument) => void;
+}) {
   const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(documents.length / PAGE_SIZE));
   const current = Math.min(page, totalPages);
@@ -79,7 +85,8 @@ export function DocumentTable({ documents }: { documents: AdminDocument[] }) {
               <th className="py-2.5 pr-4 font-semibold">Department</th>
               <th className="py-2.5 pr-4 font-semibold">Access</th>
               <th className="py-2.5 pr-4 font-semibold">Roles</th>
-              <th className="py-2.5 font-semibold">Uploaded</th>
+              <th className="py-2.5 pr-4 font-semibold">Uploaded</th>
+              <th className="py-2.5 font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -138,11 +145,20 @@ export function DocumentTable({ documents }: { documents: AdminDocument[] }) {
                     {formatDate(d.uploaded_at)}
                   </span>
                 </td>
+                <td className="py-3">
+                  <button
+                    onClick={() => onShowSummary(d)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-surface-200 dark:border-surface-700 px-2.5 py-1.5 text-xs font-medium text-surface-600 dark:text-surface-300 transition-colors hover:border-brand-300 hover:text-brand-700 dark:hover:border-brand-500/40 dark:hover:text-brand-300"
+                  >
+                    <FileSearch className="w-3.5 h-3.5" />
+                    Summary
+                  </button>
+                </td>
               </tr>
             ))}
             {pageRows.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-sm text-surface-400">
+                <td colSpan={8} className="py-12 text-center text-sm text-surface-400">
                   No documents in the library yet.
                 </td>
               </tr>

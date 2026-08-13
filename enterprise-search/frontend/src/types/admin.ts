@@ -76,6 +76,8 @@ export interface AdminDocument {
   roles: string[];
   uploaded_at: string; // ISO
   status: AdminDocumentStatus;
+  /** Auto-generated executive summary ('' = not generated yet). */
+  summary?: string;
 }
 
 export interface AdminDocumentsResponse {
@@ -88,4 +90,8 @@ export interface UploadResult {
   name: string;
   status: AdminDocumentStatus;
   message: string;
+  department: string;
+  access: DocumentAccess;
+  /** Executive summary generated for the uploaded document. */
+  summary?: string;
 }

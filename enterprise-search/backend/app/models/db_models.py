@@ -26,6 +26,12 @@ class Document(Base):
     size_kb: Mapped[int] = mapped_column(Integer, default=0)
     chunks_indexed: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String, default="indexing")  # indexing | ready | failed
+    # Auto-generated executive summary of the document ("" = not generated yet).
+    summary: Mapped[str] = mapped_column(Text, default="")
+    # Company / department the document belongs to (HR, IT, Finance, ...).
+    department: Mapped[str] = mapped_column(String, default="Other")
+    # Access level: "Internal" (default) | "Confidential".
+    access: Mapped[str] = mapped_column(String, default="Internal")
     # JSON list of role names allowed to view this document. Empty list = everyone.
     roles: Mapped[str] = mapped_column(Text, default="[]")
     uploaded_at: Mapped[datetime] = mapped_column(

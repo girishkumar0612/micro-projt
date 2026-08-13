@@ -1,11 +1,17 @@
 import { useRef, useState } from 'react';
-import { FileText, UploadCloud, X, AlertCircle } from 'lucide-react';
+import { FileText, UploadCloud, X, AlertCircle, Lock, Globe, Building2 } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { cn } from '@/utils';
-import { MAX_UPLOAD_MB, uploadAdminDocument } from '@/services/admin/documentService';
-import type { UploadResult } from '@/types';
+import {
+  DEPARTMENTS,
+  MAX_UPLOAD_MB,
+  uploadAdminDocument,
+} from '@/services/admin/documentService';
+import type { DocumentAccess, UploadResult } from '@/types';
 
 const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
+
+const ACCESS_OPTIONS: DocumentAccess[] = ['Internal', 'Confidential'];
 
 interface Props {
   onUploaded: (result: UploadResult) => void;
@@ -18,6 +24,8 @@ export function UploadDropzone({ onUploaded }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [access, setAccess] = useState<DocumentAccess>('Internal');
+  const [department, setDepartment] = useState<string>('Other');
 
   const accept = (f: File | undefined) => {
     setError(null);
@@ -52,7 +60,7 @@ export function UploadDropzone({ onUploaded }: Props) {
     }, 220);
 
     try {
-      const result = await uploadAdminDocument(file.name);
+      const result = await uploadAdminDocument(file, { access, department });
       clearInterval(ticker);
       setProgress(100);
       setTimeout(() => {
@@ -117,6 +125,68 @@ export function UploadDropzone({ onUploaded }: Props) {
             Drag &amp; drop a PDF here, or <span className="font-medium text-brand-600 dark:text-brand-400">browse</span>
           </p>
         )}
+      </div>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div>
+          <p className="mb-2 text-xs font-medium text-surface-600 dark:text-surface-300">Access level</p>
+          <div className="flex gap-1.5">
+            {ACCESS_OPTIONS.map((a) => {
+              const active = access === a;
+              const confidential = a === 'Confidential';
+              return (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => setAccess(a)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
+                    active
+                      ? confidential
+                        ? 'border-red-500 bg-red-50 text-red-700 dark:border-red-500/50 dark:bg-red-500/10 dark:text-red-300'
+                        : 'border-brand-500 bg-brand-50 text-brand-700 dark:border-brand-500/50 dark:bg-brand-500/10 dark:text-brand-300'
+                      : 'border-surface-200 text-surface-600 hover:border-surface-300 dark:border-surface-700 dark:text-surface-300 dark:hover:border-surface-600',
+                  )}
+                >
+                  {confidential ? <Lock className="h-3.5 w-3.5" /> : <Globe className="h-3.5 w-3.5" />}
+                  {a}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs font-medium text-surface-600 dark:text-surface-300">Company / department</p>
+          <div className="relative">
+            <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-400" />
+            <select
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              className={cn(
+                'h-10 w-full appearance-none rounded-lg border border-surface-200 bg-white pl-9 pr-8 text-xs font-medium text-surface-700 dark:border-surface-700 dark:bg-surface-900 dark:text-surface-200',
+                'outline-none transition-colors focus:border-brand-400 dark:focus:border-brand-500/50',
+              )}
+            >
+              {DEPARTMENTS.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+            <svg
+              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
+        </div>
       </div>
 
       {error && (

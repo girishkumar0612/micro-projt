@@ -21,6 +21,8 @@ router = APIRouter(prefix="/api", tags=["upload"])
 async def upload_pdf(
     file: UploadFile = File(...),
     roles: str | None = Form(default=None),
+    department: str | None = Form(default=None),
+    access: str | None = Form(default=None),
     db: Session = Depends(get_db),
     _admin: None = Depends(require_admin),
 ):
@@ -34,7 +36,14 @@ async def upload_pdf(
             role_list = []
 
     file_bytes = await file.read()
-    doc = document_service.upload_document(db, file.filename, file_bytes, roles=role_list)
+    doc = document_service.upload_document(
+        db,
+        file.filename,
+        file_bytes,
+        roles=role_list,
+        department=department or "Other",
+        access=access or "Internal",
+    )
     return UploadResponse(
         id=doc.id,
         filename=doc.filename,
@@ -42,4 +51,7 @@ async def upload_pdf(
         uploaded_at=doc.uploaded_at,
         status=doc.status,
         roles=document_service.doc_roles(doc),
+        department=doc.department,
+        access=doc.access,
+        summary=doc.summary,
     )

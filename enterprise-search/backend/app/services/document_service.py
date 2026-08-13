@@ -9,6 +9,7 @@ Routes call only this; this is the only layer allowed to touch both
 SQLite (metadata) and the rag/ package (vectors).
 """
 import json
+import re
 from pathlib import Path
 from sqlalchemy.orm import Session
 
@@ -46,6 +47,56 @@ def accessible_document_ids(db: Session, user: User) -> set[str]:
     return {d.id for d in db.query(Document).all() if can_access(d, user)}
 
 
+# ---------- Summarization ----------
+
+def summarize_document(pages: list[dict], filename: str) -> str:
+    """
+    Builds an executive summary for a document. Tries the Groq LLM first;
+    if the model is unavailable (no API key, network, etc.) it falls back to
+    the opening sentences so the document still gets a useful summary.
+    """
+    full_text = "\n".join(p["text"] for p in pages)
+    if not full_text.strip():
+        logger.warning(f"No text available to summarize '{filename}'.")
+        return ""
+
+    try:
+        from app.rag.llm_chain import generate_summary
+        summary = generate_summary(full_text)
+        if summary:
+            logger.info(f"Generated LLM summary for '{filename}' ({len(summary)} chars).")
+            return summary[:4000]
+    except Exception as exc:
+        logger.warning(f"LLM summary failed for '{filename}', using fallback: {exc}")
+
+    # Fallback: lead paragraph (first 3–4 sentences) of the document.
+    sentences = re.split(r"(?<=[.!?])\s+", full_text.strip())
+    lead = " ".join(sentences[:4]).strip()
+    logger.info(f"Used heuristic summary for '{filename}'.")
+    return lead[:2000] if lead else ""
+
+
+def get_or_create_summary(db: Session, doc: Document) -> str:
+    """Returns the stored summary, or generates + persists one on demand."""
+    if doc.summary:
+        return doc.summary
+
+    summary = ""
+    path = Path(doc.stored_path) if doc.stored_path else None
+    if path and path.exists():
+        try:
+            pages = extract_pages(path)
+            summary = summarize_document(pages, doc.filename)
+        except Exception as exc:
+            logger.warning(f"On-demand summary failed for '{doc.filename}': {exc}")
+            summary = ""
+
+    doc.summary = summary
+    db.commit()
+    db.refresh(doc)
+    return summary
+
+
 # ---------- CRUD ----------
 
 def list_documents(db: Session, user: User) -> list[Document]:
@@ -59,7 +110,14 @@ def get_document(db: Session, document_id: str) -> Document:
     return doc
 
 
-def upload_document(db: Session, filename: str, file_bytes: bytes, roles: list[str] | None = None) -> Document:
+def upload_document(
+    db: Session,
+    filename: str,
+    file_bytes: bytes,
+    roles: list[str] | None = None,
+    department: str = "Other",
+    access: str = "Internal",
+) -> Document:
     if not filename.lower().endswith(".pdf"):
         raise InvalidFileTypeError("Only PDF files are supported.")
 
@@ -70,8 +128,20 @@ def upload_document(db: Session, filename: str, file_bytes: bytes, roles: list[s
     # Empty roles list = visible to everyone. Only valid role names are kept.
     safe_roles = [r for r in (roles or []) if isinstance(r, str) and r.strip()]
 
+    # Normalize the access level; anything unknown falls back to Internal.
+    safe_access = access if access in ("Internal", "Confidential") else "Internal"
+    safe_department = (department or "Other").strip()[:80] or "Other"
+
     # Create DB row first (status=indexing) so it shows up immediately in the UI.
-    doc = Document(filename=filename, stored_path="", size_kb=size_kb, status="indexing", roles=json.dumps(safe_roles))
+    doc = Document(
+        filename=filename,
+        stored_path="",
+        size_kb=size_kb,
+        status="indexing",
+        roles=json.dumps(safe_roles),
+        department=safe_department,
+        access=safe_access,
+    )
     db.add(doc)
     db.commit()
     db.refresh(doc)
@@ -87,6 +157,7 @@ def upload_document(db: Session, filename: str, file_bytes: bytes, roles: list[s
         indexed_count = vectorstore.add_chunks(doc.id, chunks)
 
         doc.chunks_indexed = indexed_count
+        doc.summary = summarize_document(pages, filename)
         doc.status = "ready"
         db.commit()
         db.refresh(doc)
